@@ -21,3 +21,27 @@ BUILD_PLAN.md, the phased build order for Claude Code to execute against.
 ## How to use this with Claude Code
 
 Drop all five files into the repo root or a docs folder. Point Claude Code at BUILD_PLAN.md first and ask it to execute Phase 0, then proceed phase by phase, referencing ARCHITECTURE.md and AGENTS.md as it builds each component. Do not ask it to build everything in one shot, the phased order exists because each phase should be runnable and demoable before the next one starts.
+
+## Local development
+
+Prerequisites: Python 3.11+, Node 20+, and Postgres 16 (or Docker).
+
+1. Start Postgres: `docker compose up -d db` (creates user, password and database `council`).
+2. Backend:
+   ```
+   cd backend
+   python -m venv .venv && .venv/bin/pip install -r requirements.txt
+   cp .env.example .env        # then set GEMINI_API_KEY, never commit .env
+   .venv/bin/python -m scripts.migrate
+   .venv/bin/uvicorn app.main:app --reload --port 8000
+   ```
+   `GET http://localhost:8000/health` reports database connectivity and whether a Gemini key is configured.
+3. Frontend:
+   ```
+   cd frontend
+   npm install
+   npm run dev
+   ```
+   Open http://localhost:5173. In dev, `/api/*` is proxied to the backend, so no key or backend URL reaches the browser bundle.
+
+Models: specialists use `SPECIALIST_MODEL` (default `gemini-3.5-flash`), the Moderator uses `MODERATOR_MODEL` (default `gemini-3.7-flash`). Both are environment variables so they can be changed without code edits.
