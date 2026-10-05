@@ -2,7 +2,7 @@
 
 ## Stack
 
-Frontend, React with Vite, plain CSS or Tailwind, no component library needed for something this small. Backend, FastAPI. Database, Postgres, SQLite is acceptable for local development but the demo deployment should run Postgres since it is one less thing to swap later. Model access, the Claude API directly, no agent framework in v1. A hand rolled orchestration loop is both simpler to reason about and a stronger thing to explain in an interview than a framework call nobody can see inside.
+Frontend, React with Vite, plain CSS or Tailwind, no component library needed for something this small. Backend, FastAPI. Database, Postgres, SQLite is acceptable for local development but the demo deployment should run Postgres since it is one less thing to swap later. Model access, the Google Gemini API directly (free tier, via the google-genai SDK), no agent framework in v1. A hand rolled orchestration loop is both simpler to reason about and a stronger thing to explain in an interview than a framework call nobody can see inside.
 
 ## Why no framework
 
@@ -10,9 +10,9 @@ LangGraph, CrewAI, and similar tools exist for this exact pattern, but for a thr
 
 ## Model choice per agent
 
-The three specialist agents, Budget, Logistics, and Vibe, run on claude-haiku-4-5-20251001. Their job in each turn is narrow, propose or react from one fixed perspective, which does not need the most expensive model, and keeping them fast matters since three of them run per round and the user is watching live.
+The three specialist agents, Budget, Logistics, and Vibe, run on Gemini 3.5 Flash (SPECIALIST_MODEL, default gemini-3.5-flash). Their job in each turn is narrow, propose or react from one fixed perspective, which does not need the most expensive model, and keeping them fast matters since three of them run per round and the user is watching live.
 
-The Moderator agent runs on claude-sonnet-5. Its job is harder, read the full transcript, resolve genuine disagreements between the three specialists, and produce a coherent final plan with an honest trade off log. That step is the one place in the pipeline where reasoning quality visibly shows up in the output, so it gets the stronger model.
+The Moderator agent runs on Gemini 3.7 Flash (MODERATOR_MODEL, default gemini-3.7-flash). Its job is harder, read the full transcript, resolve genuine disagreements between the three specialists, and produce a coherent final plan with an honest trade off log. That step is the one place in the pipeline where reasoning quality visibly shows up in the output, so it gets the stronger model.
 
 ## Orchestration flow
 
@@ -32,7 +32,7 @@ Server Sent Events from FastAPI to the React frontend, one event per agent turn 
 
 ## Structured output
 
-Each specialist turn returns JSON with fields for option_title, short description, estimated cost where relevant, and a one line stance, plus a separate free text field for the human readable commentary the UI displays in the transcript. Use Claude's structured output support to enforce this shape rather than parsing free text, since a malformed field breaking the UI mid demo is the single worst failure mode to leave unguarded.
+Each specialist turn returns JSON with fields for option_title, short description, estimated cost where relevant, and a one line stance, plus a separate free text field for the human readable commentary the UI displays in the transcript. Use Gemini's structured output support (response_schema, from Pydantic models in backend/app/schemas.py) to enforce this shape rather than parsing free text, since a malformed field breaking the UI mid demo is the single worst failure mode to leave unguarded.
 
 ## Guardrails
 
@@ -40,4 +40,4 @@ Hard cap of two rounds, no open ended back and forth, both for latency and for A
 
 ## Deployment
 
-Frontend on Vercel, backend on Render or Railway, Postgres as a managed instance on the same platform as the backend. Keep the Claude API key server side only, never exposed to the frontend bundle.
+Frontend on Vercel, backend on Render or Railway, Postgres as a managed instance on the same platform as the backend. Keep the Gemini API key server side only, never exposed to the frontend bundle.

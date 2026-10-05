@@ -4,15 +4,15 @@ Each phase should be runnable and worth looking at before the next one starts. D
 
 ## Phase 0, scaffold
 
-Set up the repo structure, a backend folder for FastAPI and a frontend folder for the React app. Install dependencies. Set up environment variable handling for the Claude API key, never commit it. Stand up a Postgres instance, local for development, and run the schema from DATA_MODEL.md as a migration. Confirm a basic FastAPI health check endpoint responds and a basic Vite React app renders, before any agent logic exists.
+Set up the repo structure, a backend folder for FastAPI and a frontend folder for the React app. Install dependencies. Set up environment variable handling for the Gemini API key, never commit it. Stand up a Postgres instance, local for development, and run the schema from DATA_MODEL.md as a migration. Confirm a basic FastAPI health check endpoint responds and a basic Vite React app renders, before any agent logic exists.
 
 ## Phase 1, one agent end to end
 
-Build the Claude API client wrapper, a single function that takes a system prompt and a user message and returns the structured JSON shape described in AGENTS.md, using Claude's structured output support rather than manual parsing. Wire up just the Budget agent against a hardcoded test brief and confirm it returns a sane structured response from the real API. This phase exists to prove the core mechanic works before three agents and two rounds add complexity on top of it.
+Build the Gemini API client wrapper, a single function that takes a system prompt and a user message and returns the structured JSON shape described in AGENTS.md, using Gemini's structured output support rather than manual parsing. Wire up just the Budget agent against a hardcoded test brief and confirm it returns a sane structured response from the real API. This phase exists to prove the core mechanic works before three agents and two rounds add complexity on top of it.
 
 ## Phase 2, full orchestration loop
 
-Add Logistics and Vibe using the same client wrapper. Implement round one, all three called in parallel against the brief alone. Implement round two, all three called again with round one's output added to context. Implement the Moderator call on Sonnet 5, taking the full transcript and returning the final plan shape. Persist every turn to agent_turns and the final result to final_plans as the loop runs. At the end of this phase, hitting one backend endpoint with a brief should produce a complete session in the database, start to finish, with no frontend involved yet.
+Add Logistics and Vibe using the same client wrapper. Implement round one, all three called in parallel against the brief alone. Implement round two, all three called again with round one's output added to context. Implement the Moderator call on Gemini 3.7 Flash, taking the full transcript and returning the final plan shape. Persist every turn to agent_turns and the final result to final_plans as the loop runs. At the end of this phase, hitting one backend endpoint with a brief should produce a complete session in the database, start to finish, with no frontend involved yet.
 
 ## Phase 3, streaming
 

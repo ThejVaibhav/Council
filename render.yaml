@@ -1,0 +1,22 @@
+# Render blueprint: FastAPI backend + managed Postgres. Set GEMINI_API_KEY and CORS_ORIGINS in the dashboard.
+services:
+  - type: web
+    name: council-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    preDeployCommand: python -m scripts.migrate
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: council-db
+          property: connectionString
+databases:
+  - name: council-db
+    plan: free

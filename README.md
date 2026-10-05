@@ -20,7 +20,7 @@ BUILD_PLAN.md, the phased build order for Claude Code to execute against.
 
 ## How to use this with Claude Code
 
-Drop all five files into the repo root or a docs folder. Point Claude Code at BUILD_PLAN.md first and ask it to execute Phase 0, then proceed phase by phase, referencing ARCHITECTURE.md and AGENTS.md as it builds each component. Do not ask it to build everything in one shot, the phased order exists because each phase should be runnable and demoable before the next one starts.
+Point Claude Code at BUILD_PLAN.md first and ask it to execute Phase 0, then proceed phase by phase, referencing ARCHITECTURE.md and AGENTS.md as it builds each component. Do not ask it to build everything in one shot, the phased order exists because each phase should be runnable and demoable before the next one starts.
 
 ## Local development
 
@@ -43,5 +43,22 @@ Prerequisites: Python 3.11+, Node 20+, and Postgres 16 (or Docker).
    npm run dev
    ```
    Open http://localhost:5173. In dev, `/api/*` is proxied to the backend, so no key or backend URL reaches the browser bundle.
+
+Checks, from `backend/`:
+
+- `.venv/bin/python -m pytest` runs the offline tests (model calls stubbed, needs Postgres).
+- `.venv/bin/python -m scripts.try_budget` runs the Budget agent once against the real Gemini API.
+- `.venv/bin/python -m scripts.run_scenarios` runs the three PRD demo scenarios end to end against the real API and prints each transcript and its duration.
+
+## API
+
+- `POST /sessions/stream` with `{"brief": "...", "constraints": {...}}` streams Server Sent Events: `session`, `round_start`, `turn` (one per specialist turn), `agent_error` (an agent failed or timed out, the debate continues), `moderator_start`, `final_plan`, then `done` or `error`.
+- `POST /sessions` runs the same debate without streaming and returns all events at once.
+- `GET /sessions/{id}` returns the saved session, transcript, and final plan.
+
+## Deploy
+
+Backend and Postgres: `render.yaml` is a Render blueprint (runs migrations before each deploy). Set `GEMINI_API_KEY` and `CORS_ORIGINS` (the frontend's URL) in the Render dashboard.
+Frontend: deploy `frontend/` to Vercel (build `npm run build`, output `dist`) with `VITE_API_BASE` set to the backend URL.
 
 Models: specialists use `SPECIALIST_MODEL` (default `gemini-3.5-flash`), the Moderator uses `MODERATOR_MODEL` (default `gemini-3.7-flash`). Both are environment variables so they can be changed without code edits.
