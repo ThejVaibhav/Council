@@ -29,9 +29,37 @@ app.add_middleware(
 )
 
 
+_active_debates = 0
+
+
+def _claim_slot() -> None:
+    global _active_debates
+    if _active_debates >= get_settings().max_concurrent_debates:
+        raise HTTPException(429, "The council is busy with other debates right now, try again in a minute.")
+    _active_debates += 1
+
+
+def _release_slot() -> None:
+    global _active_debates
+    _active_debates -= 1
+
+
+class Constraints(BaseModel):
+    budget: str | int | float | None = None
+    headcount: int | None = Field(default=None, ge=1, le=100)
+    dates: str | None = Field(default=None, max_length=200)
+    location: str | None = Field(default=None, max_length=200)
+
+
 class BriefIn(BaseModel):
     brief: str = Field(min_length=10, max_length=4000)
-    constraints: dict | None = None
+    constraints: Constraints | None = None
+
+    def constraint_dict(self) -> dict | None:
+        if self.constraints is None:
+            return None
+        d = self.constraints.model_dump(exclude_none=True)
+        return d or None
 
 
 @app.get("/health")
@@ -52,32 +80,46 @@ async def health():
 @app.post("/sessions")
 async def run_session(body: BriefIn):
     """Run the whole debate and return when it finishes (Phase 2 endpoint, no streaming)."""
-    pool = db.get_pool()
-    session_id = await create_session(pool, body.brief, body.constraints)
-    events: list[dict] = []
+    _claim_slot()
+    try:
+        pool = db.get_pool()
+        constraints = body.constraint_dict()
+        session_id = await create_session(pool, body.brief, constraints)
+        events: list[dict] = []
 
-    async def emit(event: dict):
-        events.append(event)
+        async def emit(event: dict):
+            events.append(event)
 
-    await run_debate(pool, session_id, body.brief, body.constraints, emit)
+        await run_debate(pool, session_id, body.brief, constraints, emit)
+    finally:
+        _release_slot()
     return {"session_id": str(session_id), "events": events}
 
 
 @app.post("/sessions/stream")
 async def stream_session(body: BriefIn):
     """Run the debate and stream one Server Sent Event per turn as it completes."""
-    pool = db.get_pool()
-    session_id = await create_session(pool, body.brief, body.constraints)
+    _claim_slot()
+    try:
+        pool = db.get_pool()
+        constraints = body.constraint_dict()
+        session_id = await create_session(pool, body.brief, constraints)
+    except BaseException:
+        _release_slot()
+        raise
     queue: asyncio.Queue[dict | None] = asyncio.Queue()
 
     async def worker():
         try:
-            await run_debate(pool, session_id, body.brief, body.constraints, queue.put)
+            await run_debate(pool, session_id, body.brief, constraints, queue.put)
         finally:
-            await queue.put(None)
+            _release_slot()
+            queue.put_nowait(None)
+
+    # Started here, not inside the generator, so the slot is always released even if streaming never begins.
+    task = asyncio.create_task(worker())
 
     async def events():
-        task = asyncio.create_task(worker())
         yield f"event: session\ndata: {json.dumps({'session_id': str(session_id)})}\n\n"
         try:
             while (event := await queue.get()) is not None:

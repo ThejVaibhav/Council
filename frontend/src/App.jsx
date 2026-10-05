@@ -6,6 +6,17 @@ const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 const AGENT_LABEL = { budget: 'Budget', logistics: 'Logistics', vibe: 'Vibe', moderator: 'Moderator' }
 const ROUND_LABEL = { 1: 'Round one, proposals', 2: 'Round two, reactions' }
 
+const EMPTY_CONSTRAINTS = { budget: '', headcount: '', dates: '', location: '' }
+
+function cleanConstraints(c) {
+  const out = {}
+  for (const [k, v] of Object.entries(c)) {
+    const t = String(v).trim()
+    if (t) out[k] = k === 'headcount' ? Number(t) : t
+  }
+  return Object.keys(out).length ? out : null
+}
+
 const formatCost = (c) => (c == null ? null : `₹${Math.round(c).toLocaleString('en-IN')}`)
 
 function Turn({ item }) {
@@ -67,7 +78,7 @@ function PlanCard({ plan }) {
 
 export default function App() {
   const [brief, setBrief] = useState('')
-  const [constraints, setConstraints] = useState(null)
+  const [constraints, setConstraints] = useState(EMPTY_CONSTRAINTS)
   const [items, setItems] = useState([])
   const [phase, setPhase] = useState('idle') // idle | running | moderating | done | error
   const [plan, setPlan] = useState(null)
@@ -76,8 +87,9 @@ export default function App() {
 
   const pickScenario = (s) => {
     setBrief(s.brief)
-    setConstraints(s.constraints)
+    setConstraints({ ...EMPTY_CONSTRAINTS, ...s.constraints })
   }
+  const setField = (k) => (e) => setConstraints((c) => ({ ...c, [k]: e.target.value }))
 
   const run = async (e) => {
     e.preventDefault()
@@ -92,7 +104,7 @@ export default function App() {
     try {
       await streamDebate(
         `${API_BASE}/sessions/stream`,
-        { brief, constraints },
+        { brief, constraints: cleanConstraints(constraints) },
         (type, data) => {
           if (type === 'round_start') setItems((xs) => [...xs, { kind: 'round', round: data.round }])
           else if (type === 'turn') setItems((xs) => [...xs, { kind: 'turn', ...data }])
@@ -140,14 +152,32 @@ export default function App() {
         </div>
         <textarea
           value={brief}
-          onChange={(e) => {
-            setBrief(e.target.value)
-            setConstraints(null)
-          }}
+          onChange={(e) => setBrief(e.target.value)}
           placeholder="What are you planning? Include budget, group size, dates, location, and the vibe you want."
           rows={4}
           disabled={busy}
         />
+        <details className="constraints">
+          <summary>Constraints (optional)</summary>
+          <div className="constraint-grid">
+            <label>
+              Budget
+              <input value={constraints.budget} onChange={setField('budget')} placeholder="8000 INR" disabled={busy} />
+            </label>
+            <label>
+              People
+              <input type="number" min="1" max="100" value={constraints.headcount} onChange={setField('headcount')} placeholder="3" disabled={busy} />
+            </label>
+            <label>
+              Dates
+              <input value={constraints.dates} onChange={setField('dates')} placeholder="Sat and Sun" disabled={busy} />
+            </label>
+            <label>
+              Location
+              <input value={constraints.location} onChange={setField('location')} placeholder="Bengaluru" disabled={busy} />
+            </label>
+          </div>
+        </details>
         <button type="submit" className="primary" disabled={busy || brief.trim().length < 10}>
           {busy ? 'Council in session...' : 'Convene the council'}
         </button>

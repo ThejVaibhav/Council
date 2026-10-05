@@ -54,7 +54,20 @@ Checks, from `backend/`:
 
 - `POST /sessions/stream` with `{"brief": "...", "constraints": {...}}` streams Server Sent Events: `session`, `round_start`, `turn` (one per specialist turn), `agent_error` (an agent failed or timed out, the debate continues), `moderator_start`, `final_plan`, then `done` or `error`.
 - `POST /sessions` runs the same debate without streaming and returns all events at once.
+- Both return `429` when `MAX_CONCURRENT_DEBATES` debates are already running, and `422` for an invalid brief or constraints (`budget`, `headcount`, `dates`, `location`, all optional).
+- Gemini rate limits and server errors are retried with backoff inside each agent's time budget; a failed call does not stop the debate.
 - `GET /sessions/{id}` returns the saved session, transcript, and final plan.
+
+## Your checklist
+
+Things only you can do, in order:
+
+1. Revoke the Gemini key that was committed in `d88c8dd` and create a new one in Google AI Studio.
+2. Locally: `docker compose up -d db`, put the new key in `backend/.env` (copy from `.env.example`), run the migration.
+3. Run `python -m scripts.try_budget`, then `python -m scripts.run_scenarios`. If a model name is rejected, set the correct ID in `SPECIALIST_MODEL` / `MODERATOR_MODEL`.
+4. Open the app (`npm run dev`) and run the three demo scenarios in the browser.
+5. Deploy: create the Render blueprint from `render.yaml`, set `GEMINI_API_KEY` and `CORS_ORIGINS`; import `frontend/` into Vercel with `VITE_API_BASE` set to the Render URL; then set `CORS_ORIGINS` to the Vercel URL.
+6. Record the screen capture of a full session for the LinkedIn post.
 
 ## Deploy
 

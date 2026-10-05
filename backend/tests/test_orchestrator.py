@@ -90,3 +90,56 @@ def test_non_streaming_endpoint(stub_models):
     with TestClient(app) as client:
         body = client.post("/sessions", json={"brief": BRIEF}).json()
         assert body["events"][-1]["type"] == "done"
+
+
+def test_concurrency_cap_returns_429(stub_models, monkeypatch):
+    import app.main as main
+
+    monkeypatch.setattr(main, "_active_debates", 2)
+    with TestClient(app) as client:
+        r = client.post("/sessions/stream", json={"brief": BRIEF})
+        assert r.status_code == 429
+    assert main._active_debates == 2
+
+
+def test_slot_released_after_debate(stub_models):
+    import app.main as main
+
+    with TestClient(app) as client:
+        client.post("/sessions/stream", json={"brief": BRIEF})
+    assert main._active_debates == 0
+
+
+def test_invalid_constraints_rejected():
+    with TestClient(app) as client:
+        r = client.post("/sessions/stream", json={"brief": BRIEF, "constraints": {"headcount": 0}})
+        assert r.status_code == 422
+
+
+def test_cancelled_debate_marked_failed(monkeypatch):
+    from app import db
+    from app.orchestrator import create_session, run_debate
+
+    async def hang(agent, message):
+        await asyncio.sleep(10)
+
+    monkeypatch.setattr(agents, "run_specialist", hang)
+
+    async def scenario():
+        pool = await db.init_pool()
+        try:
+            sid = await create_session(pool, BRIEF, None)
+
+            async def emit(e):
+                pass
+
+            task = asyncio.create_task(run_debate(pool, sid, BRIEF, None, emit))
+            await asyncio.sleep(0.1)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+            return await pool.fetchval("SELECT status FROM sessions WHERE id=$1", sid)
+        finally:
+            await db.close_pool()
+
+    assert asyncio.run(scenario()) == "failed"

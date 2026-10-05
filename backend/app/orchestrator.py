@@ -89,6 +89,11 @@ async def run_debate(pool: asyncpg.Pool, session_id: UUID, brief: str, constrain
             )
             await conn.execute("UPDATE sessions SET status='complete' WHERE id=$1", session_id)
         await emit({"type": "final_plan", **plan.model_dump(), "summary": synthesis.summary, "trade_off_log": trade_offs})
+    except asyncio.CancelledError:
+        # client went away mid-debate; record it rather than leaving the session in_progress
+        log.info("debate %s cancelled", session_id)
+        await asyncio.shield(pool.execute("UPDATE sessions SET status='failed' WHERE id=$1", session_id))
+        raise
     except Exception as e:
         log.exception("debate %s failed", session_id)
         await pool.execute("UPDATE sessions SET status='failed' WHERE id=$1", session_id)

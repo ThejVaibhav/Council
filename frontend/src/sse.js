@@ -6,7 +6,16 @@ export async function streamDebate(url, body, onEvent, signal) {
     body: JSON.stringify(body),
     signal,
   })
-  if (!res.ok) throw new Error(`could not reach the Council server (HTTP ${res.status}). Is the backend running?`)
+  if (!res.ok) {
+    let detail = null
+    try {
+      const body = await res.json()
+      detail = typeof body.detail === 'string' ? body.detail : body.detail?.[0]?.msg
+    } catch {
+      // not JSON, e.g. the dev proxy's 502 when the backend is down
+    }
+    throw new Error(detail || `could not reach the Council server (HTTP ${res.status}). Is the backend running?`)
+  }
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''

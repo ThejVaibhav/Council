@@ -74,3 +74,55 @@ def test_empty_response_raises():
 def test_timeout_raises():
     with pytest.raises(LLMError, match="timed out"):
         run(call(FakeClient(FakeResponse(json.dumps(VALID)), delay=0.5), timeout=0.05))
+
+
+class FlakyClient(FakeClient):
+    """Fails with the given errors first, then returns a valid response."""
+
+    def __init__(self, failures):
+        super().__init__(FakeResponse(json.dumps(VALID)))
+        self.failures = list(failures)
+
+    async def generate_content(self, *, model, contents, config):
+        self.calls.append(model)
+        if self.failures:
+            f = self.failures.pop(0)
+            if isinstance(f, Exception):
+                raise f
+            return f
+        return self.response
+
+
+@pytest.fixture(autouse=True)
+def fast_backoff(monkeypatch):
+    monkeypatch.setattr("app.llm.BACKOFF_SECONDS", 0.01)
+
+
+def api_error(code):
+    from google.genai import errors
+
+    return errors.APIError(code, {"error": {"code": code, "message": "nope", "status": "X"}})
+
+
+def test_retries_rate_limit_then_succeeds():
+    client = FlakyClient([api_error(429), api_error(503)])
+    assert run(call(client)).option_title == "Homestay in Coorg"
+    assert len(client.calls) == 3
+
+
+def test_retries_malformed_output_once():
+    client = FlakyClient([FakeResponse("{not json")])
+    assert run(call(client)).stance == "propose"
+
+
+def test_persistent_rate_limit_gives_clear_error():
+    client = FlakyClient([api_error(429)] * 5)
+    with pytest.raises(LLMError, match="rate limited"):
+        run(call(client))
+
+
+def test_client_error_is_not_retried():
+    client = FlakyClient([api_error(400)])
+    with pytest.raises(LLMError, match="error 400"):
+        run(call(client))
+    assert len(client.calls) == 1

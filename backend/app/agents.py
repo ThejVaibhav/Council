@@ -59,15 +59,24 @@ def _format_turns(turns: dict[str, SpecialistTurn | None]) -> str:
     return "\n".join(lines)
 
 
+FORMAT_NOTE = (
+    "The structured fields hold one option: put your strongest option there. If you have a second option, name it "
+    "and its rough cost briefly in your commentary. Keep commentary to two or three sentences in your own voice."
+)
+
+
 def round_one_message(brief: str) -> str:
-    return f"Round one, proposal.\n\nBrief:\n{brief}"
+    return f"Round one, proposal.\n\nBrief:\n{brief}\n\n{FORMAT_NOTE}"
 
 
 def round_two_message(brief: str, agent: str, round_one: dict[str, SpecialistTurn | None]) -> str:
     others = " and ".join(a.capitalize() for a in SPECIALISTS if a != agent)
     return (
         f"Round two, reaction.\n\nBrief:\n{brief}\n\nRound one outputs:\n{_format_turns(round_one)}\n\n"
-        f"React specifically to what the {others} agents proposed. Do not just restate your round one position."
+        f"React specifically to what the {others} agents proposed. Do not just restate your round one position. "
+        "The structured option is the one you now back, yours or another agent's. Use stance support if you back "
+        "another agent's option, flag if you are raising a concrete problem with one, propose if you are putting "
+        "forward a revised option. Name the agent you are responding to in your commentary."
     )
 
 
