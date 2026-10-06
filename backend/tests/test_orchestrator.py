@@ -93,21 +93,21 @@ def test_non_streaming_endpoint(stub_models):
 
 
 def test_concurrency_cap_returns_429(stub_models, monkeypatch):
-    import app.main as main
+    import app.slots as main
 
-    monkeypatch.setattr(main, "_active_debates", 2)
+    monkeypatch.setattr(main, "_active", 2)
     with TestClient(app) as client:
         r = client.post("/sessions/stream", json={"brief": BRIEF})
         assert r.status_code == 429
-    assert main._active_debates == 2
+    assert main._active == 2
 
 
 def test_slot_released_after_debate(stub_models):
-    import app.main as main
+    import app.slots as main
 
     with TestClient(app) as client:
         client.post("/sessions/stream", json={"brief": BRIEF})
-    assert main._active_debates == 0
+    assert main._active == 0
 
 
 def test_invalid_constraints_rejected():

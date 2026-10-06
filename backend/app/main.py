@@ -6,11 +6,14 @@ from uuid import UUID
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
-from app import db
+from app import db, plans, slots, users
 from app.config import get_settings
 from app.orchestrator import create_session, run_debate
+from app.travel import TRAVEL_MODES
 
 
 @asynccontextmanager
@@ -27,21 +30,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(users.router)
+app.include_router(plans.router)
 
 
-_active_debates = 0
-
-
-def _claim_slot() -> None:
-    global _active_debates
-    if _active_debates >= get_settings().max_concurrent_debates:
-        raise HTTPException(429, "The council is busy with other debates right now, try again in a minute.")
-    _active_debates += 1
-
-
-def _release_slot() -> None:
-    global _active_debates
-    _active_debates -= 1
+_claim_slot = slots.claim
+_release_slot = slots.release
 
 
 class Constraints(BaseModel):
@@ -49,6 +43,7 @@ class Constraints(BaseModel):
     headcount: int | None = Field(default=None, ge=1, le=100)
     dates: str | None = Field(default=None, max_length=200)
     location: str | None = Field(default=None, max_length=200)
+    travel: list[Literal[tuple(TRAVEL_MODES)]] | None = Field(default=None, max_length=len(TRAVEL_MODES))  # type: ignore[valid-type]
 
 
 class BriefIn(BaseModel):

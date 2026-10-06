@@ -12,6 +12,7 @@ import asyncpg
 
 from app import agents
 from app.schemas import ModeratorSynthesis, SpecialistTurn
+from app.travel import describe
 
 log = logging.getLogger(__name__)
 Emit = Callable[[dict], Awaitable[None]]
@@ -28,8 +29,20 @@ async def create_session(pool: asyncpg.Pool, brief: str, constraints: dict | Non
 def _brief_with_constraints(brief: str, constraints: dict | None) -> str:
     if not constraints:
         return brief
-    extra = "\n".join(f"- {k}: {v}" for k, v in constraints.items() if v not in (None, ""))
-    return f"{brief}\n\nStructured constraints:\n{extra}" if extra else brief
+    lines = []
+    for k, v in constraints.items():
+        if v in (None, "", []):
+            continue
+        if k == "travel":
+            modes = describe(v)
+            if modes:
+                lines.append(
+                    f"- travel: the group is only open to {modes}. Plan with these modes only. If none of them"
+                    " realistically serves a destination (no airport, no rail line, too far to ride), say so plainly."
+                )
+            continue
+        lines.append(f"- {k}: {v}")
+    return f"{brief}\n\nStructured constraints:\n" + "\n".join(lines) if lines else brief
 
 
 async def _run_round(pool, session_id, round_no, messages: dict[str, str], emit: Emit) -> dict:
