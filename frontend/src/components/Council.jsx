@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { ROUND_LABEL } from '../agents'
 import { AgentMessage, MissingMessage, Typing, UserMessage } from './Message'
 import Verdict from './Verdict'
+import { DEMO } from '../hooks/useDebate'
 
 function Divider({ round }) {
   const r = ROUND_LABEL[round]
@@ -40,6 +41,7 @@ export default function Council({ debate, onNew }) {
       <div className="council-status">
         <span className={`live-dot ${live ? 'is-live' : ''}`} />
         {live ? (status === 'moderating' ? 'Moderator deliberating' : 'Council in session') : status === 'done' ? 'Decision reached' : 'Session ended'}
+        {DEMO && <span className="demo-tag">sample debate</span>}
       </div>
 
       <div className="thread" aria-live="polite">

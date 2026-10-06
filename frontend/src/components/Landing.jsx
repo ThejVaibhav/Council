@@ -4,6 +4,7 @@ import { AGENTS } from '../agents'
 import Composer from './Composer'
 import Scribble from './Scribble'
 import AgentAvatar from './AgentAvatar'
+import { DEMO } from '../hooks/useDebate'
 
 const rise = (delay = 0) => ({
   initial: { opacity: 0, y: 24 },
@@ -51,6 +52,11 @@ export default function Landing({ onSubmit }) {
           <br />
           debate and decide
         </Scribble>
+        {DEMO && (
+          <p className="demo-note">
+            Preview build: the council plays a scripted sample debate for each example. A custom brief replays the weekend trip.
+          </p>
+        )}
       </motion.div>
 
       <section id="how" className="how">

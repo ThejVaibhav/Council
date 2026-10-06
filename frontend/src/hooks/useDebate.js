@@ -1,8 +1,11 @@
 import { useCallback, useRef, useState } from 'react'
 import { SPECIALISTS } from '../agents'
+import { simulateDebate } from '../demo'
 import { streamDebate } from '../sse'
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
+export const DEMO = import.meta.env.VITE_DEMO === '1'
+const run = DEMO ? simulateDebate : streamDebate
 
 const initial = { status: 'idle', request: null, items: [], pending: [], plan: null, error: null }
 
@@ -29,7 +32,7 @@ export function useDebate() {
     let finished = false
 
     try {
-      await streamDebate(
+      await run(
         `${API_BASE}/sessions/stream`,
         { brief: request.brief, constraints: request.constraints },
         (type, data) => {
