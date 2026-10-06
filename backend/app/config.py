@@ -18,8 +18,8 @@ class Settings(BaseSettings):
     # Each debate makes 7 model calls; cap parallel debates so a public demo stays inside free-tier quota.
     max_concurrent_debates: int = 2
 
-    database_url: str = "postgresql://council:council@localhost:5432/council"
-    cors_origins: str = "http://localhost:5173"
+    database_url: str = "postgresql://council:council@localhost:55432/council"
+    cors_origins: str = "http://localhost:5288"
 
     @property
     def cors_origin_list(self) -> list[str]:

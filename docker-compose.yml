@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: council
       POSTGRES_DB: council
     ports:
-      - "5432:5432"
+      - "${COUNCIL_DB_PORT:-55432}:5432"
     volumes:
       - council_pg:/var/lib/postgresql/data
 volumes:

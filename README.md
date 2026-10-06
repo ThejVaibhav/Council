@@ -24,25 +24,38 @@ Point Claude Code at BUILD_PLAN.md first and ask it to execute Phase 0, then pro
 
 ## Local development
 
-Prerequisites: Python 3.11+, Node 20+, and Postgres 16 (or Docker).
+Prerequisites: Python 3.11+, Node 20+, and Docker (or your own Postgres 16).
 
-1. Start Postgres: `docker compose up -d db` (creates user, password and database `council`).
-2. Backend:
+Ports are picked to stay clear of the usual defaults, so Council can run next to other projects:
+
+| Service | Port | Change it with |
+| --- | --- | --- |
+| Postgres (Docker) | 55432 | `COUNCIL_DB_PORT` when running `docker compose`, plus `DATABASE_URL` in `backend/.env` |
+| Backend (FastAPI) | 8787 | the `--port` flag on uvicorn, plus `COUNCIL_API_URL` for the frontend |
+| Frontend (Vite) | 5288 | `COUNCIL_WEB_PORT`, plus `CORS_ORIGINS` in `backend/.env` |
+
+1. Start Postgres:
+   ```
+   docker compose up -d db
+   ```
+2. Backend, in one terminal:
    ```
    cd backend
-   python -m venv .venv && .venv/bin/pip install -r requirements.txt
-   cp .env.example .env        # then set GEMINI_API_KEY, never commit .env
+   python -m venv .venv
+   .venv/bin/pip install -r requirements.txt     # Windows: .venv\Scripts\pip
+   cp .env.example .env                          # then open .env and paste your key after GEMINI_API_KEY=
    .venv/bin/python -m scripts.migrate
-   .venv/bin/uvicorn app.main:app --reload --port 8000
+   .venv/bin/uvicorn app.main:app --reload --port 8787
    ```
-   `GET http://localhost:8000/health` reports database connectivity and whether a Gemini key is configured.
-3. Frontend:
+   `backend/.env` is gitignored on purpose: it holds your key, so it exists only on your machine and never appears on GitHub.
+   Check http://localhost:8787/health: `gemini_key_configured` should be `true`.
+3. Frontend, in a second terminal:
    ```
    cd frontend
    npm install
    npm run dev
    ```
-   Open http://localhost:5173. In dev, `/api/*` is proxied to the backend, so no key or backend URL reaches the browser bundle.
+   Open http://localhost:5288. In dev, `/api/*` is proxied to the backend, so no key or backend URL reaches the browser bundle.
 
 Checks, from `backend/`:
 
