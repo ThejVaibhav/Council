@@ -6,6 +6,7 @@ export const SCENARIOS = [
     brief:
       'A two day weekend trip to the hills for three friends, budget eight thousand rupees total, somewhere within driving distance of Bengaluru. We want it relaxing rather than packed with activities.',
     constraints: { budget: '8000', headcount: '3', dates: 'Saturday and Sunday', location: 'Bengaluru' },
+    travel: ['own_car'],
   },
   {
     label: 'Date night',
@@ -13,6 +14,7 @@ export const SCENARIOS = [
     brief:
       'Date night for two in Bengaluru this Friday. One of us has a 6 am flight from Kempegowda airport on Saturday, so we need to be home early. Budget around three thousand rupees. We want it to feel special, not rushed.',
     constraints: { budget: '3000', headcount: '2', dates: 'Friday evening', location: 'Bengaluru' },
+    travel: ['cab'],
   },
   {
     label: 'Beach with friends',
@@ -20,6 +22,7 @@ export const SCENARIOS = [
     brief:
       'Four friends want a beach trip over the long weekend, leaving from Bengaluru by train or bus. Budget fourteen thousand rupees total. We want sea, seafood and lazy evenings, not a packed itinerary.',
     constraints: { budget: '14000', headcount: '4', dates: 'Long weekend', location: 'Bengaluru' },
+    travel: ['train', 'bus_private'],
   },
   {
     label: 'Birthday party',

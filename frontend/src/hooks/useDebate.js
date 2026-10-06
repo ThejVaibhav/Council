@@ -1,15 +1,13 @@
 import { useCallback, useRef, useState } from 'react'
 import { SPECIALISTS } from '../agents'
-import { simulateDebate } from '../demo'
-import { streamDebate } from '../sse'
+import { DEMO, api } from '../api'
 
-const API_BASE = import.meta.env.VITE_API_BASE || '/api'
-export const DEMO = import.meta.env.VITE_DEMO === '1'
-const run = DEMO ? simulateDebate : streamDebate
+export { DEMO }
 
-const initial = { status: 'idle', request: null, items: [], pending: [], plan: null, error: null }
+const initial = { status: 'idle', plan: null, request: null, items: [], pending: [], result: null, error: null }
 
-// status: idle | running | moderating | done | error
+// Follows one shared plan: replays what already happened, then the live debate.
+// status: idle | loading | running | moderating | done | error
 export function useDebate() {
   const [state, setState] = useState(initial)
   const abortRef = useRef(null)
@@ -19,26 +17,22 @@ export function useDebate() {
     setState(initial)
   }, [])
 
-  const start = useCallback(async (request) => {
+  const open = useCallback(async (plan) => {
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
-    setState({ ...initial, status: 'running', request })
-
-    const update = (fn) => {
-      if (!controller.signal.aborted) setState(fn)
-    }
+    const request = { brief: plan.brief, constraints: plan.constraints }
+    setState({ ...initial, status: plan.status === 'complete' ? 'loading' : 'running', plan, request })
+    const update = (fn) => !controller.signal.aborted && setState(fn)
     const drop = (pending, agent) => pending.filter((a) => a !== agent)
     let finished = false
-
     try {
-      await run(
-        `${API_BASE}/sessions/stream`,
-        { brief: request.brief, constraints: request.constraints },
+      await api.streamPlan(
+        plan.id,
         (type, data) => {
           switch (type) {
             case 'round_start':
-              update((s) => ({ ...s, items: [...s.items, { kind: 'round', round: data.round }], pending: [...SPECIALISTS] }))
+              update((s) => ({ ...s, status: 'running', items: [...s.items, { kind: 'round', round: data.round }], pending: [...SPECIALISTS] }))
               break
             case 'turn':
               update((s) => ({ ...s, items: [...s.items, { kind: 'turn', ...data }], pending: drop(s.pending, data.agent) }))
@@ -50,7 +44,7 @@ export function useDebate() {
               update((s) => ({ ...s, status: 'moderating', pending: ['moderator'] }))
               break
             case 'final_plan':
-              update((s) => ({ ...s, plan: data, pending: [] }))
+              update((s) => ({ ...s, result: data, pending: [] }))
               break
             case 'error':
               finished = true
@@ -64,12 +58,29 @@ export function useDebate() {
         },
         controller.signal,
       )
-      if (!finished) throw new Error('The connection closed before the council finished.')
+      if (!finished) update((s) => (s.status === 'loading' || s.status === 'running' ? { ...s, status: 'error', error: 'This debate was interrupted before it finished.' } : s))
     } catch (err) {
       if (err.name === 'AbortError') return
       update((s) => ({ ...s, status: 'error', error: err.message, pending: [] }))
     }
   }, [])
 
-  return { ...state, start, reset }
+  const start = useCallback(
+    async (request) => {
+      setState({ ...initial, status: 'running', request })
+      try {
+        const plan = await api.createPlan(request)
+        await open(plan)
+        return plan
+      } catch (err) {
+        setState((s) => ({ ...s, status: 'error', error: err.message }))
+        return null
+      }
+    },
+    [open],
+  )
+
+  const patchPlan = useCallback((patch) => setState((s) => (s.plan ? { ...s, plan: { ...s.plan, ...patch } } : s)), [])
+
+  return { ...state, start, open, reset, patchPlan }
 }

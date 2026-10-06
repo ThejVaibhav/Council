@@ -103,6 +103,8 @@ def test_shared_plan_is_the_same_for_every_member(stub_models):
         owner_view = events(c, plan["id"], ha)
         friend_view = events(c, plan["id"], hb)
         assert [e["type"] for e in owner_view][-2:] == ["final_plan", "done"]
+        for x, y in zip(owner_view, friend_view):
+            assert x == y, {k: (x.get(k), y.get(k)) for k in set(x) | set(y) if x.get(k) != y.get(k)}
         assert owner_view == friend_view  # same debate, same order, same content
         assert [e["seq"] for e in owner_view] == list(range(1, len(owner_view) + 1))
 

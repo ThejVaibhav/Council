@@ -41,3 +41,15 @@ Hard cap of two rounds, no open ended back and forth, both for latency and for A
 ## Deployment
 
 Frontend on Vercel, backend on Render or Railway, Postgres as a managed instance on the same platform as the backend. Keep the Gemini API key server side only, never exposed to the frontend bundle.
+
+## Accounts and shared plans
+
+Added after v1 at the product owner's request. Users sign up with a username and password (email optional, used for finding friends). Profiles and characters live in Postgres, so they look the same on every device.
+
+A shared plan's debate no longer runs inside the HTTP request. POST /plans starts it as a background task; every event is written to session_events with a sequence number and fanned out through an in-process broker (backend/app/broker.py). GET /plans/{id}/stream replays the stored events and then follows the broker until the debate ends, so the owner and every invited friend see the identical transcript and verdict, live or after the fact. The broker is in-process, which assumes a single backend instance; scaling out would need Postgres LISTEN/NOTIFY or Redis in its place.
+
+The original anonymous /sessions endpoints still exist for scripts and tests.
+
+## Travel modes and routes
+
+The planner sends the travel modes the group is open to as a constraint. The orchestrator turns them into an explicit instruction: plan only with these modes, and say so if none serves the destination. The route map in the UI is an illustration driven by a small built-in gazetteer (frontend/src/places.js) for rough distance and time; there is no maps API.

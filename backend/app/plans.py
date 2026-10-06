@@ -28,6 +28,7 @@ class Constraints(BaseModel):
     headcount: int | None = Field(default=None, ge=1, le=100)
     dates: str | None = Field(default=None, max_length=200)
     location: str | None = Field(default=None, max_length=200)
+    destination: str | None = Field(default=None, max_length=200)
     travel: list[Literal[tuple(TRAVEL_MODES)]] | None = Field(default=None, max_length=len(TRAVEL_MODES))  # type: ignore[valid-type]
 
 
@@ -60,16 +61,20 @@ async def _require_member(session_id: UUID, user_id: UUID):
 async def _run(session_id: UUID, brief: str, constraints: dict | None) -> None:
     pool = db.get_pool()
     seq = 0
+    lock = asyncio.Lock()
 
     async def emit(event: dict) -> None:
+        # Agents finish in parallel; numbering, storing and publishing must happen as one step per event,
+        # or a live viewer can receive seq 3 before seq 2 and drop 2 as already seen.
         nonlocal seq
-        seq += 1
-        event = {**event, "seq": seq}
-        await pool.execute(
-            "INSERT INTO session_events (session_id, seq, type, payload) VALUES ($1, $2, $3, $4)",
-            session_id, seq, event["type"], event,
-        )
-        broker.publish(session_id, event)
+        async with lock:
+            seq += 1
+            event = {**event, "seq": seq}
+            await pool.execute(
+                "INSERT INTO session_events (session_id, seq, type, payload) VALUES ($1, $2, $3, $4)",
+                session_id, seq, event["type"], event,
+            )
+            broker.publish(session_id, event)
 
     try:
         await run_debate(pool, session_id, brief, constraints, emit)

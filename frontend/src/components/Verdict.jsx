@@ -2,7 +2,10 @@ import { motion } from 'motion/react'
 import { Check, Copy } from 'lucide-react'
 import { useState } from 'react'
 import { AGENTS, budgetCap, formatCost } from '../agents'
+import { TRAVEL } from '../avatarOptions'
 import AgentAvatar from './AgentAvatar'
+import RouteCard from './art/RouteCard'
+import { findPlace, placeInText } from '../places'
 
 // The trade-off text names the winning agent first ("Budget, because ..."); use it to mark the winner.
 function winnerOf(text) {
@@ -21,6 +24,9 @@ export default function Verdict({ plan, constraints }) {
   const cap = budgetCap(constraints)
   const share = cap && plan.estimated_cost != null ? plan.estimated_cost / cap : null
   const people = constraints?.headcount
+  const routeFrom = findPlace(constraints?.location)
+  const routeTo = findPlace(constraints?.destination) ?? placeInText(`${plan.title} ${plan.summary} ${plan.description}`, routeFrom)
+  const route = routeFrom && routeTo ? { from: routeFrom, to: routeTo, mode: constraints?.travel?.length === 1 && constraints.travel[0] === 'flight' ? 'flight' : (constraints?.travel?.[0] ?? 'own_car') } : null
 
   const copy = async () => {
     try {
@@ -63,6 +69,9 @@ export default function Verdict({ plan, constraints }) {
             {constraints?.location && (
               <div><dt>From</dt><dd>{constraints.location}</dd></div>
             )}
+            {constraints?.travel?.length > 0 && (
+              <div><dt>Getting there</dt><dd>{constraints.travel.map((t) => TRAVEL.find((x) => x.id === t)?.label ?? t).join(', ')}</dd></div>
+            )}
           </dl>
         </div>
         <div className="ticket-stub">
@@ -79,6 +88,13 @@ export default function Verdict({ plan, constraints }) {
           <span className="barcode" aria-hidden="true" />
         </div>
       </div>
+
+      {route && (
+        <div className="plan-detail glass">
+          <span className="field-label">The route</span>
+          <RouteCard compact from={constraints.location} to={route.to.name} fromPlace={route.from} toPlace={route.to} mode={route.mode} />
+        </div>
+      )}
 
       <div className="plan-detail glass">
         <span className="field-label">The plan</span>

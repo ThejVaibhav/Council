@@ -1,9 +1,9 @@
-// POST + Server Sent Events. EventSource only supports GET, so read the stream by hand.
-export async function streamDebate(url, body, onEvent, signal) {
+// Server Sent Events over fetch (POST with a body, or GET with auth headers). EventSource only supports GET, so read the stream by hand.
+export async function streamDebate(url, body, onEvent, signal, headers = {}) {
   const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    method: body ? 'POST' : 'GET',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: body ? JSON.stringify(body) : undefined,
     signal,
   })
   if (!res.ok) {

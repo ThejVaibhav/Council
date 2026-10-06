@@ -43,6 +43,7 @@ class Constraints(BaseModel):
     headcount: int | None = Field(default=None, ge=1, le=100)
     dates: str | None = Field(default=None, max_length=200)
     location: str | None = Field(default=None, max_length=200)
+    destination: str | None = Field(default=None, max_length=200)
     travel: list[Literal[tuple(TRAVEL_MODES)]] | None = Field(default=None, max_length=len(TRAVEL_MODES))  # type: ignore[valid-type]
 
 

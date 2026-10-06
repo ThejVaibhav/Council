@@ -70,14 +70,21 @@ Checks, from `backend/`:
 - Both return `429` when `MAX_CONCURRENT_DEBATES` debates are already running, and `422` for an invalid brief or constraints (`budget`, `headcount`, `dates`, `location`, all optional).
 - Gemini rate limits and server errors are retried with backoff inside each agent's time budget; a failed call does not stop the debate.
 - `GET /sessions/{id}` returns the saved session, transcript, and final plan.
+- Accounts: `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, `GET /me`, `PUT /me` (display name and avatar).
+- Friends: `GET /users/search?q=`, `POST /friends/requests`, `GET /friends`, `POST /friends/{id}/accept`, `DELETE /friends/{id}`.
+- Shared plans (bearer token required): `POST /plans`, `GET /plans`, `GET /plans/{id}`, `POST /plans/{id}/members`, `POST /plans/join`, `GET /plans/{id}/stream`.
 
 ## How the app looks and feels
 
-- **Profile first.** On first visit you pick a name, a character (woman, man, or prefer not to say) and a skin tone. It is stored in the browser's localStorage on that device only; there are still no accounts.
-- **Your crew.** The people selector draws you waving for "Just me", a couple holding hands for "Two of us", and a walking group with luggage for three or more (up to five drawn, plus a "+N" badge).
-- **Scenes that follow the brief.** As you type, `frontend/src/scenes.js` matches the brief against keyword lists and switches the whole backdrop: Date night (velvet, rising hearts, roses), Beach day (animated sea, fish, caps, shorts, seafood), Into the hills, Under the stars, Snow trip, Celebration, Night out, Food run, Road trip, or the default Open road. Outfits change with the scene. You can pin a scene by hand from the "Scene" menu. The same file also picks up a people count from the brief ("six friends", "a date").
-- **Debate and verdict.** The debate is a group chat over the dimmed scene; the Moderator's decision is a boarding-pass ticket with the total, a bar against your budget, and stamped trade-offs.
-- Everything is drawn in SVG and CSS, with no image files, and all motion stops when the device asks for reduced motion.
+- **Accounts.** Create an account (username and password, email optional so friends can find you), then design your character: body, eight skin tones, ten hairstyles and colours, eyes, brows, facial hair, glasses, headwear, top, bottoms, shoes, and a pet (dog, cat or rabbit, with breeds and a name). It is stored on the server, so it is the same on every device.
+- **Friends.** Search by username, name or exact email, send and accept requests, or share an invite link (copy it or open a prepared email).
+- **Plan together.** Pick friends in the planner; their real characters join your crew. Everyone in the plan sees the same debate and decision live, from their own device. Anyone else can join with the plan's invite link.
+- **Your crew.** "Just me" shows you waving, "Two of us" a couple holding hands, three or more a walking group with luggage (up to five drawn, plus "+N"). Your pet walks with you.
+- **Scenes that follow the brief.** `frontend/src/scenes.js` matches the brief and switches the whole backdrop: Date night, Beach day, Into the hills, Under the stars, Snow trip, Celebration, Night out, Food run, Road trip or Open road. The people count is picked up from the brief too. You can pin a scene by hand.
+- **Getting there.** Choose the travel modes the group is open to (own car, self-drive, bike, cab, state bus, private bus, train, flight, local only) or let the council decide. The agents are told to plan only with those.
+- **Route map.** Enter a starting point (and optionally a destination) to see an animated route with your vehicle moving along it, with rough distance and time for well-known places. The verdict ticket shows the route to wherever the Moderator decided.
+- **Debate and verdict.** A group chat over the scene, then a boarding-pass ticket with the total, a budget bar, the route and stamped trade-offs.
+- Everything is drawn in SVG and CSS, and all motion stops when the device asks for reduced motion.
 
 ## Your checklist
 

@@ -1,5 +1,6 @@
 import { motion } from 'motion/react'
 import { AGENTS, STANCE_LABEL, formatCost } from '../agents'
+import { TRAVEL } from '../avatarOptions'
 import AgentAvatar from './AgentAvatar'
 
 const pop = {
@@ -16,17 +17,19 @@ export function SystemLine({ children }) {
   )
 }
 
-export function UserMessage({ request }) {
+export function UserMessage({ request, author }) {
   const c = request.constraints || {}
   const chips = [
     c.budget && `₹${String(c.budget).replace(/\s*INR$/i, '')}`,
     c.headcount && `${c.headcount} people`,
     c.dates,
-    c.location,
+    c.location && c.destination ? `${c.location} → ${c.destination}` : c.location,
+    ...(c.travel ?? []).map((t) => TRAVEL.find((x) => x.id === t)?.label),
   ].filter(Boolean)
   return (
     <motion.div className="row row-me" {...pop}>
       <div className="bubble bubble-me">
+        {author && <span className="me-author">{author}</span>}
         {request.brief}
         {chips.length > 0 && (
           <div className="me-chips">

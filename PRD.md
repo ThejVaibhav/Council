@@ -18,7 +18,7 @@ One flow only, trip or outing planning, from a single text brief to a final plan
 
 ## Explicitly out of scope for v1
 
-No user accounts or saved history across sessions. No real booking integrations, flights, hotels, or restaurants are not actually reserved. No live pricing or weather APIs, agents reason from the brief and general knowledge, not live data feeds. No mobile app, web only. No payment splitting. No more than three specialist agents and one moderator, additional agent types are a v2 idea, not v1.
+No user accounts or saved history across sessions. (Since changed at the owner's request: accounts, friends and shared plans were added; see ARCHITECTURE.md.) No real booking integrations, flights, hotels, or restaurants are not actually reserved. No live pricing or weather APIs, agents reason from the brief and general knowledge, not live data feeds. No mobile app, web only. No payment splitting. No more than three specialist agents and one moderator, additional agent types are a v2 idea, not v1.
 
 ## Success criteria
 

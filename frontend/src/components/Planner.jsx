@@ -1,10 +1,14 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowRight, CalendarDays, Check, ChevronDown, IndianRupee, MapPin, Minus, Plus, Wand2 } from 'lucide-react'
+import { ArrowRight, Bike, Bus, CalendarDays, Car, CarTaxiFront, Check, ChevronDown, Footprints, IndianRupee, KeyRound, MapPin, Minus, Plane, Plus, TrainFront, Wand2 } from 'lucide-react'
+import { TRAVEL } from '../avatarOptions'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { cleanConstraints } from '../constraints'
 import { SCENARIOS } from '../scenarios'
 import { SCENES, SCENE_IDS, detectPeople } from '../scenes'
-import Crew from './art/Crew'
+import Crew, { Portrait } from './art/Crew'
+import RouteCard from './art/RouteCard'
+import { findPlace, placeInText } from '../places'
+import { Flag } from 'lucide-react'
 
 function greeting(name) {
   const h = new Date().getHours()
@@ -70,7 +74,12 @@ function ScenePicker({ sceneId, auto, onPick }) {
   )
 }
 
-export default function Planner({ profile, draft, setDraft, sceneId, sceneAuto, onPickScene, onSend }) {
+function TravelIcon({ kind }) {
+  const I = { car: Car, key: KeyRound, bike: Bike, cab: CarTaxiFront, bus: Bus, train: TrainFront, plane: Plane, walk: Footprints }[kind]
+  return I ? <I size={15} /> : null
+}
+
+export default function Planner({ me, friends = [], draft, setDraft, sceneId, sceneAuto, onPickScene, onSend }) {
   const textRef = useRef(null)
   const scene = SCENES[sceneId]
   const people = draft.people
@@ -96,21 +105,37 @@ export default function Planner({ profile, draft, setDraft, sceneId, sceneAuto, 
     return () => clearTimeout(t)
   }, [draft.brief, setDraft])
 
-  const setPeople = (n) => setDraft((d) => ({ ...d, people: Math.min(20, Math.max(1, n)) }))
+  const fromPlace = findPlace(draft.constraints.location)
+  const typedTo = (draft.constraints.destination ?? '').trim()
+  const guessedTo = typedTo ? null : placeInText(draft.brief, fromPlace)
+  const toPlace = typedTo ? findPlace(typedTo) : guessedTo
+
+  const chosen = friends.filter((f) => draft.friendIds.includes(f.id))
+  const minPeople = 1 + chosen.length
+  const setPeople = (n) => setDraft((d) => ({ ...d, people: Math.min(20, Math.max(1 + d.friendIds.length, n)) }))
+  const toggleFriend = (id) =>
+    setDraft((d) => {
+      const friendIds = d.friendIds.includes(id) ? d.friendIds.filter((x) => x !== id) : [...d.friendIds, id]
+      return { ...d, friendIds, people: Math.max(d.people, 1 + friendIds.length) }
+    })
+  const toggleTravel = (id) =>
+    setDraft((d) => ({ ...d, travel: id === 'any' ? [] : d.travel.includes(id) ? d.travel.filter((x) => x !== id) : [...d.travel, id] }))
   const setField = (k) => (e) => setDraft((d) => ({ ...d, constraints: { ...d.constraints, [k]: e.target.value } }))
   const ready = draft.brief.trim().length >= 10
 
   const send = (e) => {
     e?.preventDefault()
     if (!ready) return
-    onSend({ brief: draft.brief.trim(), constraints: cleanConstraints({ ...draft.constraints, headcount: String(people) }) })
+    const constraints = cleanConstraints({ ...draft.constraints, headcount: String(people) }) ?? {}
+    if (draft.travel.length) constraints.travel = draft.travel
+    onSend({ brief: draft.brief.trim(), constraints, scene: sceneId, member_ids: draft.friendIds })
   }
 
   return (
     <motion.main className="planner" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.4 }}>
       <section className="hero">
         <div className="hero-copy">
-          <p className="eyebrow">{greeting(profile.name)}</p>
+          <p className="eyebrow">{greeting(me.display_name)}</p>
           <AnimatePresence mode="wait">
             <motion.h1 key={sceneId} className="display hero-title" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35 }}>
               {scene.tagline}
@@ -120,7 +145,7 @@ export default function Planner({ profile, draft, setDraft, sceneId, sceneAuto, 
           <ScenePicker sceneId={sceneId} auto={sceneAuto} onPick={onPickScene} />
         </div>
         <div className="hero-art">
-          <Crew count={people} profile={profile} sceneId={sceneId} />
+          <Crew count={people} me={me.avatar} friends={chosen.map((f) => f.avatar)} sceneId={sceneId} />
         </div>
       </section>
 
@@ -137,6 +162,7 @@ export default function Planner({ profile, draft, setDraft, sceneId, sceneAuto, 
                   aria-checked={group === g.id}
                   className={group === g.id ? 'is-on' : ''}
                   onClick={() => setPeople(g.id === 3 ? Math.max(3, people) : g.id)}
+                  disabled={g.id < 3 && g.id < minPeople}
                 >
                   {group === g.id && <motion.span layoutId="seg" className="seg-bg" transition={{ type: 'spring', stiffness: 400, damping: 34 }} />}
                   <span className="seg-label">{g.label}</span>
@@ -146,7 +172,7 @@ export default function Planner({ profile, draft, setDraft, sceneId, sceneAuto, 
             <AnimatePresence>
               {people >= 3 && (
                 <motion.div className="stepper" initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -6 }}>
-                  <button type="button" aria-label="One fewer person" onClick={() => setPeople(people - 1)} disabled={people <= 3}>
+                  <button type="button" aria-label="One fewer person" onClick={() => setPeople(people - 1)} disabled={people <= Math.max(3, minPeople)}>
                     <Minus size={14} />
                   </button>
                   <span aria-live="polite">{people} people</span>
@@ -157,6 +183,26 @@ export default function Planner({ profile, draft, setDraft, sceneId, sceneAuto, 
               )}
             </AnimatePresence>
           </div>
+        </div>
+
+        <div className="with-friends">
+          <span className="field-label">Plan with friends <span className="optional">they see the debate live</span></span>
+          {friends.length === 0 ? (
+            <p className="hint small">Add friends from the Friends tab to plan together, or share the invite link once the debate starts.</p>
+          ) : (
+            <div className="friend-picks">
+              {friends.map((f) => {
+                const on = draft.friendIds.includes(f.id)
+                return (
+                  <button type="button" key={f.id} className={`friend-pick ${on ? 'is-on' : ''}`} aria-pressed={on} onClick={() => toggleFriend(f.id)}>
+                    <Portrait avatar={f.avatar} size={28} />
+                    <span>{f.display_name}</span>
+                    {on && <Check size={14} />}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         <label className="field-label" htmlFor="brief">What's the plan?</label>
@@ -185,6 +231,41 @@ export default function Planner({ profile, draft, setDraft, sceneId, sceneAuto, 
             <MapPin size={15} />
             <input id="c-location" value={draft.constraints.location} onChange={setField('location')} placeholder="Starting from" />
           </label>
+          <label className="detail" htmlFor="c-destination">
+            <Flag size={15} />
+            <input id="c-destination" value={draft.constraints.destination ?? ''} onChange={setField('destination')} placeholder={guessedTo ? `Going to (${guessedTo.name}?)` : 'Going to (optional)'} />
+          </label>
+        </div>
+
+        <AnimatePresence initial={false}>
+          {draft.constraints.location.trim().length >= 2 && (
+            <motion.div className="route-wrap" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
+              <RouteCard
+                from={draft.constraints.location.trim()}
+                to={(draft.constraints.destination ?? '').trim() || guessedTo?.name || null}
+                fromPlace={fromPlace}
+                toPlace={toPlace}
+                mode={draft.travel.includes('flight') && draft.travel.length === 1 ? 'flight' : (draft.travel[0] ?? 'own_car')}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="travel">
+          <span className="field-label">Getting there <span className="optional">pick any that work for you</span></span>
+          <div className="travel-chips" role="group" aria-label="Travel modes">
+            <button type="button" className={`travel-chip ${draft.travel.length === 0 ? 'is-on' : ''}`} aria-pressed={draft.travel.length === 0} onClick={() => toggleTravel('any')}>
+              <Wand2 size={15} /> Council decides
+            </button>
+            {TRAVEL.map((t) => {
+              const on = draft.travel.includes(t.id)
+              return (
+                <button type="button" key={t.id} className={`travel-chip ${on ? 'is-on' : ''}`} aria-pressed={on} onClick={() => toggleTravel(t.id)}>
+                  <TravelIcon kind={t.icon} /> {t.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         <div className="examples">
@@ -199,7 +280,9 @@ export default function Planner({ profile, draft, setDraft, sceneId, sceneAuto, 
                   setDraft({
                     brief: s.brief,
                     constraints: { budget: s.constraints.budget, dates: s.constraints.dates, location: s.constraints.location },
-                    people: Number(s.constraints.headcount),
+                    people: Math.max(Number(s.constraints.headcount), 1 + draft.friendIds.length),
+                    friendIds: draft.friendIds,
+                    travel: s.travel ?? [],
                     active: s.label,
                   })
                 }
