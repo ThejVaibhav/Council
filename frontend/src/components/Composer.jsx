@@ -1,37 +1,25 @@
-import { AnimatePresence, motion } from 'motion/react'
-import { CalendarDays, ChevronDown, IndianRupee, Map as MapIcon, MapPin, SlidersHorizontal, Sparkle, ArrowRight, Users } from 'lucide-react'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { ArrowRight } from 'lucide-react'
+import { useLayoutEffect, useRef } from 'react'
 import { EMPTY_CONSTRAINTS, cleanConstraints } from '../constraints'
 import { SCENARIOS } from '../scenarios'
 
 const FIELDS = [
-  { key: 'budget', label: 'Budget', Icon: IndianRupee, placeholder: '8000', inputMode: 'text' },
-  { key: 'headcount', label: 'People', Icon: Users, placeholder: '3', inputMode: 'numeric' },
-  { key: 'dates', label: 'Dates', Icon: CalendarDays, placeholder: 'Sat and Sun' },
-  { key: 'location', label: 'Location', Icon: MapPin, placeholder: 'Bengaluru' },
+  { key: 'budget', label: 'Budget (₹)', placeholder: '8000', inputMode: 'text' },
+  { key: 'headcount', label: 'People', placeholder: '3', inputMode: 'numeric' },
+  { key: 'dates', label: 'When', placeholder: 'Sat and Sun' },
+  { key: 'location', label: 'Starting from', placeholder: 'Bengaluru' },
 ]
 
-export default function Composer({ onSubmit }) {
-  const [brief, setBrief] = useState('')
-  const [constraints, setConstraints] = useState(EMPTY_CONSTRAINTS)
-  const [active, setActive] = useState(null)
-  const [showConstraints, setShowConstraints] = useState(false)
+export default function Composer({ draft, setDraft, onSubmit }) {
   const textRef = useRef(null)
+  const { brief, constraints, active } = draft
 
-  // Grow the brief box with its content so the whole brief is always visible.
   useLayoutEffect(() => {
     const el = textRef.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight}px`
+    el.style.height = `${Math.max(el.scrollHeight, 120)}px`
   }, [brief])
-
-  const pick = (s) => {
-    setActive(s.label)
-    setBrief(s.brief)
-    setConstraints({ ...EMPTY_CONSTRAINTS, ...s.constraints })
-    setShowConstraints(true)
-  }
 
   const ready = brief.trim().length >= 10
   const submit = (e) => {
@@ -40,91 +28,68 @@ export default function Composer({ onSubmit }) {
   }
 
   return (
-    <form className="composer glass" onSubmit={submit}>
-      <div className="chips" role="group" aria-label="Example plans">
-        {SCENARIOS.map((s) => (
-          <motion.button
-            type="button"
-            key={s.label}
-            className={`chip ${active === s.label ? 'is-active' : ''}`}
-            onClick={() => pick(s)}
-            whileTap={{ scale: 0.96 }}
-          >
-            <s.Icon size={18} strokeWidth={1.8} />
-            {s.label}
-          </motion.button>
-        ))}
+    <form className="panel composer" onSubmit={submit}>
+      <div className="composer-head">
+        <h1>What are you planning?</h1>
+        <p>Describe the plan the way you would to a friend. Include who is going, the budget, and what kind of time you want.</p>
       </div>
 
-      <label className="brief-field">
-        <span className="brief-icon"><MapIcon size={20} strokeWidth={1.7} /></span>
-        <textarea
-          ref={textRef}
-          value={brief}
-          onChange={(e) => {
-            setBrief(e.target.value)
-            setActive(null)
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit(e)
-          }}
-          placeholder="What are you planning? Who's coming, the budget, and the vibe you're after."
-          rows={3}
-          aria-label="Your plan"
-        />
-      </label>
+      <label className="sr-only" htmlFor="brief">Plan brief</label>
+      <textarea
+        id="brief"
+        ref={textRef}
+        className="brief-input"
+        value={brief}
+        onChange={(e) => setDraft((d) => ({ ...d, brief: e.target.value, active: null }))}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit(e)
+        }}
+        placeholder="A relaxed two-day trip for three friends from Bengaluru, around ₹8,000 total, nothing too packed."
+      />
 
-      <button
-        type="button"
-        className="constraints-toggle"
-        onClick={() => setShowConstraints((v) => !v)}
-        aria-expanded={showConstraints}
-      >
-        <SlidersHorizontal size={18} strokeWidth={1.8} />
-        Constraints <span className="muted">(optional)</span>
-        <ChevronDown size={16} className={`toggle-caret ${showConstraints ? 'is-open' : ''}`} />
-      </button>
+      <fieldset className="constraints">
+        <legend>Constraints <span>optional</span></legend>
+        <div className="constraint-grid">
+          {FIELDS.map(({ key, label, placeholder, inputMode }) => (
+            <label key={key} className="field" htmlFor={`c-${key}`}>
+              <span>{label}</span>
+              <input
+                id={`c-${key}`}
+                value={constraints[key]}
+                inputMode={inputMode}
+                placeholder={placeholder}
+                onChange={(e) => setDraft((d) => ({ ...d, constraints: { ...d.constraints, [key]: e.target.value } }))}
+              />
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
-      <AnimatePresence initial={false}>
-        {showConstraints && (
-          <motion.div
-            className="fields"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div className="fields-grid">
-              {FIELDS.map(({ key, label, Icon, placeholder, inputMode }) => (
-                <label key={key} className={`field field-${key}`}>
-                  <span className="field-icon"><Icon size={18} strokeWidth={1.7} /></span>
-                  <span className="field-body">
-                    <span className="field-label">{label}</span>
-                    <input
-                      value={constraints[key]}
-                      onChange={(e) => setConstraints((c) => ({ ...c, [key]: e.target.value }))}
-                      placeholder={placeholder}
-                      inputMode={inputMode}
-                    />
-                  </span>
-                </label>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div className="examples">
+        <span className="examples-label">Or start from an example</span>
+        <div className="example-list">
+          {SCENARIOS.map((s) => (
+            <button
+              type="button"
+              key={s.label}
+              className={`example ${active === s.label ? 'is-active' : ''}`}
+              aria-pressed={active === s.label}
+              onClick={() => setDraft({ brief: s.brief, constraints: { ...EMPTY_CONSTRAINTS, ...s.constraints }, active: s.label })}
+            >
+              <span className="example-title">{s.label}</span>
+              <span className="example-meta">{s.meta}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
-      <motion.button
-        type="submit"
-        className="cta"
-        disabled={!ready}
-        whileHover={ready ? { y: -2 } : undefined}
-        whileTap={ready ? { scale: 0.97 } : undefined}
-      >
-        <Sparkle size={18} fill="currentColor" strokeWidth={0} className="cta-spark" />
-        Convene the council
-        <ArrowRight size={18} />
-      </motion.button>
+      <div className="composer-foot">
+        <span className="hint">Two rounds of debate, then a verdict. Usually under a minute.</span>
+        <button type="submit" className="btn btn-primary" disabled={!ready}>
+          Start the debate <ArrowRight size={16} strokeWidth={2.2} />
+          <kbd>⌘↵</kbd>
+        </button>
+      </div>
     </form>
   )
 }

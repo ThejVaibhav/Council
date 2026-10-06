@@ -1,63 +1,87 @@
 import { motion } from 'motion/react'
-import { Sparkle } from 'lucide-react'
+import { Check, Copy } from 'lucide-react'
+import { useState } from 'react'
 import { AGENTS, formatCost } from '../agents'
 import AgentAvatar from './AgentAvatar'
 
-const item = {
-  hidden: { opacity: 0, y: 14 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } },
+// The trade-off text names the winning agent first ("Budget, because..."); pick it out to label the row.
+function winnerOf(text) {
+  const first = text.trim().split(/[\s,.:;]/)[0]?.toLowerCase()
+  return AGENTS[first] && first !== 'moderator' ? first : null
+}
+
+function planAsText(plan) {
+  const lines = [plan.title, '', plan.summary, '', plan.description]
+  const cost = formatCost(plan.estimated_cost)
+  if (cost) lines.push('', `Estimated total: ${cost}`)
+  return lines.join('\n')
 }
 
 export default function Verdict({ plan }) {
+  const [copied, setCopied] = useState(false)
   const cost = formatCost(plan.estimated_cost)
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(planAsText(plan))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      setCopied(false)
+    }
+  }
+
   return (
     <motion.section
-      className="verdict glass"
+      className="panel verdict"
       data-testid="plan"
-      initial="hidden"
-      animate="show"
-      variants={{ show: { transition: { staggerChildren: 0.12 } } }}
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
     >
-      <motion.div className="verdict-kicker" variants={item}>
-        <AgentAvatar agent="moderator" size="sm" /> The verdict
-      </motion.div>
-      <motion.h2 variants={item}>{plan.title}</motion.h2>
-      <motion.p className="verdict-summary" variants={item}>
-        {plan.summary}
-      </motion.p>
-      <motion.div className="verdict-plan" variants={item}>
-        <p>{plan.description}</p>
+      <header className="verdict-head">
+        <span className="verdict-label">
+          <AgentAvatar agent="moderator" size={22} /> Moderator's verdict
+        </span>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={copy}>
+          {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copied' : 'Copy plan'}
+        </button>
+      </header>
+
+      <div className="verdict-title-row">
+        <h2>{plan.title}</h2>
         {cost && (
           <div className="verdict-cost">
             <span>Estimated total</span>
             <strong>{cost}</strong>
           </div>
         )}
-      </motion.div>
+      </div>
+      <p className="verdict-summary">{plan.summary}</p>
+      <p className="verdict-plan">{plan.description}</p>
 
-      <motion.h3 variants={item}>
-        <Sparkle size={14} fill="currentColor" strokeWidth={0} /> Who won what
-      </motion.h3>
+      <h3 className="section-label">Trade-offs ({plan.trade_off_log.length})</h3>
       {plan.trade_off_log.length === 0 ? (
-        <motion.p className="muted" variants={item}>
-          No real disagreement this time. The council was aligned.
-        </motion.p>
+        <p className="muted">The agents agreed on everything that mattered.</p>
       ) : (
         <ul className="tradeoffs">
-          {plan.trade_off_log.map((t, i) => (
-            <motion.li key={i} variants={item}>
-              <div className="tradeoff-who">
-                <span className="avatar-stack">
+          {plan.trade_off_log.map((t, i) => {
+            const winner = winnerOf(t.which_concern_won)
+            return (
+              <li key={i} className="tradeoff">
+                <div className="tradeoff-agents">
                   {t.agents_involved.map((a) => (
-                    <AgentAvatar key={a} agent={a} size="sm" />
+                    <span key={a} className={`agent-chip ${winner === a ? 'is-winner' : ''}`}>
+                      <AgentAvatar agent={a} size={18} /> {AGENTS[a]?.name ?? a}
+                      {winner === a && <Check size={12} strokeWidth={3} />}
+                    </span>
                   ))}
-                </span>
-                <span>{t.agents_involved.map((a) => AGENTS[a]?.name ?? a).join(' vs ')}</span>
-              </div>
-              <p className="tradeoff-what">{t.disagreement}</p>
-              <p className="tradeoff-won">{t.which_concern_won}</p>
-            </motion.li>
-          ))}
+                </div>
+                <p className="tradeoff-issue">{t.disagreement}</p>
+                <p className="tradeoff-call">{t.which_concern_won}</p>
+              </li>
+            )
+          })}
         </ul>
       )}
     </motion.section>

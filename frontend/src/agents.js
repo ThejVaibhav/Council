@@ -1,19 +1,18 @@
-import { Coins, Compass, Heart, Scale } from 'lucide-react'
-
 export const AGENTS = {
-  budget: { name: 'Budget', role: 'keeps it affordable', Icon: Coins },
-  logistics: { name: 'Logistics', role: 'makes sure it actually works', Icon: Compass },
-  vibe: { name: 'Vibe', role: 'protects the feeling', Icon: Heart },
-  moderator: { name: 'Moderator', role: 'makes the final call', Icon: Scale },
+  budget: { name: 'Budget', role: 'Keeps the plan inside your budget' },
+  logistics: { name: 'Logistics', role: 'Checks travel time, timing and group size' },
+  vibe: { name: 'Vibe', role: 'Protects the experience you asked for' },
+  moderator: { name: 'Moderator', role: 'Weighs the debate and makes the call' },
 }
 
 export const SPECIALISTS = ['budget', 'logistics', 'vibe']
+export const SEATS = ['budget', 'logistics', 'vibe', 'moderator']
 
-export const STANCE_LABEL = { propose: 'proposes', support: 'agrees', flag: 'pushes back' }
+export const STANCE_LABEL = { propose: 'Proposes', support: 'Agrees', flag: 'Pushes back' }
 
 export const ROUND_LABEL = {
-  1: { title: 'Round one', note: 'first takes' },
-  2: { title: 'Round two', note: 'the pushback' },
+  1: { title: 'Round 1', subtitle: 'Proposals' },
+  2: { title: 'Round 2', subtitle: 'Reactions' },
 }
 
 export const formatCost = (c) => (c == null ? null : `₹${Math.round(c).toLocaleString('en-IN')}`)
