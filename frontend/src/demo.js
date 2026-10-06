@@ -7,7 +7,7 @@ const T = (agent, round, option_title, description, estimated_cost, stance, comm
 })
 
 const DEBATES = {
-  'Tight weekend trip': {
+  'Hills weekend': {
     turns: [
       T('budget', 1, 'Chikmagalur homestay', 'Two nights in a coffee-estate homestay, shared room, self-drive in one car.', 6900, 'propose',
         'This lands at about 6,900 for all three, fuel included. That leaves 1,100 of breathing room, which on 8,000 you will want.'),
@@ -34,7 +34,7 @@ const DEBATES = {
       ],
     },
   },
-  'Date night, early flight': {
+  'Date night': {
     turns: [
       T('budget', 1, 'Rooftop dinner in Indiranagar', 'Set menu for two at a rooftop place, one drink each, auto both ways.', 2600, 'propose',
         'A set menu keeps the bill predictable at around 2,600. Ordering à la carte on a special night is how 3,000 becomes 4,500.'),
@@ -61,7 +61,34 @@ const DEBATES = {
       ],
     },
   },
-  'Mixed-energy birthday': {
+  'Beach with friends': {
+    turns: [
+      T('budget', 1, 'Gokarna by overnight bus', 'Sleeper bus both ways, a beach hut for two nights, seafood thalis.', 11800, 'propose',
+        'Overnight buses save a night of stay. That brings four people in at about 11,800 and leaves room for a boat ride.'),
+      T('logistics', 1, 'Gokarna via the Karwar train', 'Night train to Gokarna Road, 20 minutes by auto to Kudle beach. Book now, long weekends sell out.', 12600, 'propose',
+        'Train beats the bus on comfort and arrives by 7 am. The catch is availability: long weekend seats go three weeks out.'),
+      T('vibe', 1, 'Om beach shacks in Gokarna', 'A shack right on Om beach, hammocks, sunset from the rocks, prawn fry dinners.', 15200, 'propose',
+        'Lazy evenings means waking up on the beach, not a 20 minute walk from it. Stay on Om beach itself.'),
+      T('budget', 2, 'Kudle beach huts', 'Kudle huts instead of Om shacks, same beach life, 1,200 less.', 13200, 'flag',
+        "Vibe's Om beach shacks push us over 14,000. Kudle is one rock away and 1,200 cheaper, and the sunset is the same."),
+      T('logistics', 2, 'Train there, bus back', 'Night train out on Friday, sleeper bus back on Monday when trains are full.', 13200, 'support',
+        'Budget is right about Kudle. I would split transport: the return train is the one that sells out first.'),
+      T('vibe', 2, 'Kudle with a sunset walk', 'Stay on Kudle, walk the cliff path to Om beach for sunset and dinner one night.', 13400, 'support',
+        "Fine with Kudle if we keep one Om beach evening. That walk at sunset is the whole reason to go."),
+    ],
+    plan: {
+      title: 'Three lazy days in Gokarna', estimated_cost: 13400,
+      description: 'Night train from Bengaluru on Friday, two nights in beach huts on Kudle beach, one sunset walk over the cliff to Om beach for a seafood dinner, and a sleeper bus back on Monday.',
+      summary: 'Go to Gokarna and stay on Kudle beach. It keeps the sea-and-seafood feel, fits 14,000 for four with a little to spare, and splits train and bus so the return is not a gamble.',
+      trade_off_log: [
+        { agents_involved: ['budget', 'vibe'], disagreement: 'Vibe wanted shacks on Om beach; Budget said they break the 14,000 cap.',
+          which_concern_won: 'Budget, with one Om beach sunset dinner kept as Vibe\'s win.' },
+        { agents_involved: ['logistics', 'budget'], disagreement: 'Train both ways versus bus both ways.',
+          which_concern_won: 'Logistics, because return trains on a long weekend sell out first.' },
+      ],
+    },
+  },
+  'Birthday party': {
     turns: [
       T('budget', 1, 'Bowling and a dinner buffet', 'Two games of bowling, then a buffet dinner nearby, for eight.', 11200, 'propose',
         'At 1,400 a head this stays under 1,500 per person. Buffets also make the non-drinkers pay the same as everyone else.'),
@@ -101,7 +128,7 @@ const wait = (ms, signal) =>
 
 export async function simulateDebate(_url, body, onEvent, signal) {
   const match = SCENARIOS.find((s) => s.brief === body.brief)
-  const debate = DEBATES[match?.label] ?? DEBATES['Tight weekend trip']
+  const debate = DEBATES[match?.label] ?? DEBATES['Hills weekend']
   let id = 0
   for (const round of [1, 2]) {
     onEvent('round_start', { round })

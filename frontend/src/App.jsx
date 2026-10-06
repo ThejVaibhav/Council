@@ -1,27 +1,57 @@
 import { AnimatePresence, MotionConfig } from 'motion/react'
-import { useState } from 'react'
-import ChatHeader from './components/ChatHeader'
-import ComposerBar from './components/ComposerBar'
-import EmptyState from './components/EmptyState'
-import Thread from './components/Thread'
-import { EMPTY_CONSTRAINTS } from './constraints'
-import { useDebate } from './hooks/useDebate'
+import { useEffect, useMemo, useState } from 'react'
+import DebateView from './components/DebateView'
+import Onboarding from './components/Onboarding'
+import Planner from './components/Planner'
+import TopBar from './components/TopBar'
+import Scene from './components/art/Scene'
+import { DEMO, useDebate } from './hooks/useDebate'
+import { loadProfile, saveProfile } from './profile'
 import { SCENARIOS } from './scenarios'
+import { SCENES, detectScene } from './scenes'
 
-const EMPTY_DRAFT = { brief: '', constraints: EMPTY_CONSTRAINTS, active: null, open: false }
+const EMPTY_DRAFT = { brief: '', constraints: { budget: '', dates: '', location: '' }, people: 1, active: null }
 
-function titleFor(debate, draft) {
-  if (debate.status === 'idle') return 'New council'
-  const match = SCENARIOS.find((s) => s.brief === debate.request?.brief)
+function useDebounced(value, ms) {
+  const [v, setV] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms)
+    return () => clearTimeout(t)
+  }, [value, ms])
+  return v
+}
+
+function titleFor(request) {
+  const match = SCENARIOS.find((s) => s.brief === request?.brief)
   if (match) return match.label
-  const words = debate.request?.brief.split(/\s+/).slice(0, 5).join(' ')
-  return words ? `${words}…` : draft.active || 'Your plan'
+  const words = request?.brief.split(/\s+/).slice(0, 6).join(' ')
+  return words ? `${words}…` : 'Your plan'
 }
 
 export default function App() {
   const debate = useDebate()
+  const [profile, setProfile] = useState(loadProfile)
+  const [editingProfile, setEditingProfile] = useState(false)
   const [draft, setDraft] = useState(EMPTY_DRAFT)
+  const [override, setOverride] = useState(null)
 
+  const briefForScene = useDebounced(debate.status === 'idle' ? draft.brief : (debate.request?.brief ?? ''), 220)
+  const detected = useMemo(() => detectScene(briefForScene), [briefForScene])
+  const showOnboarding = !profile || editingProfile
+  const page = showOnboarding ? 'onboarding' : debate.status === 'idle' ? 'planner' : 'debate'
+  const sceneId = page === 'onboarding' ? 'everyday' : (override ?? detected)
+  const palette = SCENES[sceneId].palette
+
+  useEffect(() => {
+    document.body.style.background = palette.bottom
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', palette.top)
+  }, [palette])
+
+  const finishProfile = (p) => {
+    saveProfile(p)
+    setProfile(p)
+    setEditingProfile(false)
+  }
   const send = (request) => {
     window.scrollTo({ top: 0 })
     debate.start(request)
@@ -29,23 +59,39 @@ export default function App() {
   const newPlan = () => {
     debate.reset()
     setDraft(EMPTY_DRAFT)
+    setOverride(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-  const editBrief = () => {
-    // keep the draft as it was sent, so it can be tweaked and resent
+  const editPlan = () => {
     debate.reset()
-    setDraft((d) => ({ ...d, open: true }))
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const style = {
+    '--ink': palette.ink,
+    '--soft': palette.soft,
+    '--accent': palette.accent,
+    '--accent-ink': palette.accentInk,
+    '--card': palette.card,
+    '--line': palette.line,
   }
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="app">
-        <ChatHeader debate={debate} title={titleFor(debate, draft)} onBack={newPlan} />
-        <main className="main">
-          <AnimatePresence mode="wait">
-            {debate.status === 'idle' ? <EmptyState key="empty" setDraft={setDraft} /> : <Thread key="thread" debate={debate} />}
-          </AnimatePresence>
-        </main>
-        <ComposerBar draft={draft} setDraft={setDraft} onSend={send} status={debate.status} onNew={newPlan} onEdit={editBrief} />
+      <div className={`app ${palette.dark ? 'is-dark' : 'is-light'}`} style={style}>
+        <Scene sceneId={sceneId} dimmed={page === 'debate'} />
+        <TopBar profile={showOnboarding ? null : profile} onHome={newPlan} onProfile={() => setEditingProfile(true)} demo={DEMO} />
+        <AnimatePresence mode="wait">
+          {page === 'onboarding' && (
+            <Onboarding key="onboarding" initial={editingProfile ? profile : null} onDone={finishProfile} onCancel={() => setEditingProfile(false)} />
+          )}
+          {page === 'planner' && (
+            <Planner key="planner" profile={profile} draft={draft} setDraft={setDraft} sceneId={sceneId} sceneAuto={!override} onPickScene={setOverride} onSend={send} />
+          )}
+          {page === 'debate' && (
+            <DebateView key="debate" debate={debate} profile={profile} sceneId={sceneId} title={titleFor(debate.request)} onNew={newPlan} onEdit={editPlan} />
+          )}
+        </AnimatePresence>
       </div>
     </MotionConfig>
   )
