@@ -10,7 +10,6 @@ export const OPTIONS = {
   body: [
     { id: 'female', label: 'Woman' },
     { id: 'male', label: 'Man' },
-    { id: 'neutral', label: 'Prefer not to say' },
   ],
   hair: ['short', 'long', 'bun', 'ponytail', 'bob', 'curly', 'afro', 'waves', 'buzz', 'bald'],
   eyes: ['dots', 'happy', 'lashes', 'sleepy'],
@@ -20,6 +19,28 @@ export const OPTIONS = {
   headwear: ['none', 'cap', 'beanie', 'bucket', 'headband'],
   top: ['tee', 'hoodie', 'shirt', 'jacket', 'dress'],
   bottom: ['pants', 'shorts', 'skirt'],
+}
+
+// What each body can pick in the editor.
+export const BY_BODY = {
+  male: { hair: ['short', 'buzz', 'curly', 'waves', 'afro', 'bald'], facialHair: OPTIONS.facialHair, top: ['tee', 'hoodie', 'shirt', 'jacket'], bottom: ['pants', 'shorts'] },
+  female: { hair: ['long', 'bob', 'ponytail', 'bun', 'curly', 'waves', 'afro'], facialHair: ['none'], top: ['tee', 'hoodie', 'shirt', 'jacket', 'dress'], bottom: ['pants', 'shorts', 'skirt'] },
+}
+export const bodyOf = (a) => (a?.body === 'female' ? 'female' : 'male')
+export const optionsFor = (a) => BY_BODY[bodyOf(a)]
+
+// Keep a character's choices valid for its body (older characters may say "neutral").
+export function fitToBody(a) {
+  const body = bodyOf(a)
+  const o = BY_BODY[body]
+  return {
+    ...a,
+    body,
+    hair: o.hair.includes(a.hair) ? a.hair : o.hair[0],
+    facialHair: o.facialHair.includes(a.facialHair) ? a.facialHair : 'none',
+    top: o.top.includes(a.top) ? a.top : 'tee',
+    bottom: o.bottom.includes(a.bottom) ? a.bottom : 'pants',
+  }
 }
 
 export const LABELS = {
@@ -37,7 +58,7 @@ export const PET_BREEDS = {
 }
 
 export const DEFAULT_AVATAR = {
-  body: 'neutral', skin: 4, hair: 'short', hairColor: 0, eyes: 'dots', brows: 'soft', facialHair: 'none', glasses: 'none',
+  body: 'male', skin: 4, hair: 'short', hairColor: 0, eyes: 'dots', brows: 'soft', facialHair: 'none', glasses: 'none',
   headwear: 'none', top: 'tee', topColor: 7, bottom: 'pants', bottomColor: 0, shoeColor: 1,
   pet: { kind: 'none', breed: '', name: '' },
 }
@@ -56,8 +77,8 @@ export function presetFor(body, base = DEFAULT_AVATAR) {
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)]
 
 export function shuffleAvatar(current) {
-  const body = current?.body ?? pick(['female', 'male', 'neutral'])
-  const hairPool = body === 'male' ? ['short', 'curly', 'afro', 'waves', 'buzz', 'bald', 'bun'] : body === 'female' ? ['long', 'bun', 'ponytail', 'bob', 'curly', 'afro', 'waves'] : OPTIONS.hair
+  const body = bodyOf(current ?? { body: pick(['female', 'male']) })
+  const hairPool = BY_BODY[bodyOf({ body })].hair
   const top = body === 'female' ? pick(OPTIONS.top) : pick(['tee', 'hoodie', 'shirt', 'jacket'])
   return withDefaults({
     ...current,

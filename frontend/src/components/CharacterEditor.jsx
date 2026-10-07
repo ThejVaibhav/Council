@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { ArrowRight, Shuffle } from 'lucide-react'
 import { useState } from 'react'
-import { BOTTOM_COLORS, HAIR_COLORS, LABELS, OPTIONS, PET_BREEDS, SHOE_COLORS, SKIN, TOP_COLORS, presetFor, shuffleAvatar, withDefaults } from '../avatarOptions'
+import { BOTTOM_COLORS, HAIR_COLORS, LABELS, OPTIONS, PET_BREEDS, SHOE_COLORS, SKIN, TOP_COLORS, fitToBody, optionsFor, presetFor, shuffleAvatar, withDefaults } from '../avatarOptions'
 import Crew, { FullBody, Pet, Portrait } from './art/Crew'
 
 const TABS = [
@@ -56,7 +56,7 @@ function PetArt({ pet, size = 64 }) {
 }
 
 export default function CharacterEditor({ user, mode = 'create', onSave, onCancel, busy, error }) {
-  const [a, setA] = useState(() => withDefaults(user?.avatar))
+  const [a, setA] = useState(() => fitToBody(withDefaults(user?.avatar)))
   const [name, setName] = useState(user?.display_name ?? '')
   const [email, setEmail] = useState(user?.email ?? '')
   const [tab, setTab] = useState('body')
@@ -94,13 +94,13 @@ export default function CharacterEditor({ user, mode = 'create', onSave, onCance
               <motion.div key={tab} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.18 }}>
                 {tab === 'body' && (
                   <>
-                    <Tiles label="Body" options={OPTIONS.body} value={a.body} render={(id) => <FullBody avatar={a.body === id ? a : presetFor(id, a)} />} onPick={(id) => setA((x) => (x.body === id ? x : presetFor(id, x)))} />
+                    <Tiles label="Body" options={OPTIONS.body} value={a.body} render={(id) => <FullBody avatar={a.body === id ? a : presetFor(id, a)} />} onPick={(id) => setA((x) => (x.body === id ? x : fitToBody(presetFor(id, x))))} />
                     <Swatches label="Skin tone" colors={SKIN} value={a.skin} onPick={(skin) => set({ skin })} />
                   </>
                 )}
                 {tab === 'hair' && (
                   <>
-                    <Tiles label="Style" options={OPTIONS.hair} value={a.hair} render={(id) => <Portrait avatar={preview({ hair: id, headwear: 'none' })} size={52} />} onPick={(hair) => set({ hair })} />
+                    <Tiles label="Style" options={optionsFor(a).hair} value={a.hair} render={(id) => <Portrait avatar={preview({ hair: id, headwear: 'none' })} size={52} />} onPick={(hair) => set({ hair })} />
                     <Swatches label="Colour" colors={HAIR_COLORS} value={a.hairColor} onPick={(hairColor) => set({ hairColor })} />
                   </>
                 )}
@@ -108,16 +108,16 @@ export default function CharacterEditor({ user, mode = 'create', onSave, onCance
                   <>
                     <Tiles label="Eyes" options={OPTIONS.eyes} value={a.eyes} render={(id) => <Portrait avatar={preview({ eyes: id, glasses: 'none' })} size={52} />} onPick={(eyes) => set({ eyes })} />
                     <Tiles label="Brows" options={OPTIONS.brows} value={a.brows} render={(id) => <Portrait avatar={preview({ brows: id })} size={52} />} onPick={(brows) => set({ brows })} />
-                    <Tiles label="Facial hair" options={OPTIONS.facialHair} value={a.facialHair} render={(id) => <Portrait avatar={preview({ facialHair: id })} size={52} />} onPick={(facialHair) => set({ facialHair })} />
+                    {a.body === 'male' && <Tiles label="Facial hair" options={OPTIONS.facialHair} value={a.facialHair} render={(id) => <Portrait avatar={preview({ facialHair: id })} size={52} />} onPick={(facialHair) => set({ facialHair })} />}
                   </>
                 )}
                 {tab === 'outfit' && (
                   <>
-                    <Tiles label="Top" options={OPTIONS.top} value={a.top} render={(id) => <FullBody avatar={preview({ top: id })} />} onPick={(top) => set({ top })} />
+                    <Tiles label="Top" options={optionsFor(a).top} value={a.top} render={(id) => <FullBody avatar={preview({ top: id })} />} onPick={(top) => set({ top })} />
                     <Swatches label="Top colour" colors={TOP_COLORS} value={a.topColor} onPick={(topColor) => set({ topColor })} />
                     {a.top !== 'dress' && (
                       <>
-                        <Tiles label="Bottoms" options={OPTIONS.bottom} value={a.bottom} render={(id) => <FullBody avatar={preview({ bottom: id })} />} onPick={(bottom) => set({ bottom })} />
+                        <Tiles label="Bottoms" options={optionsFor(a).bottom} value={a.bottom} render={(id) => <FullBody avatar={preview({ bottom: id })} />} onPick={(bottom) => set({ bottom })} />
                         <Swatches label="Bottoms colour" colors={BOTTOM_COLORS} value={a.bottomColor} onPick={(bottomColor) => set({ bottomColor })} />
                       </>
                     )}
