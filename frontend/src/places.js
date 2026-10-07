@@ -47,30 +47,3 @@ export function distanceKm(a, b) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2
   return 2 * R * Math.asin(Math.sqrt(h))
 }
-
-// Rough door-to-door figures; road distance is about 1.3x the straight line.
-const MODES = {
-  flight: { kmh: 600, overheadH: 2.5, road: false, label: 'by air' },
-  train: { kmh: 55, overheadH: 0.5, road: true, label: 'by train' },
-  bus_state: { kmh: 45, overheadH: 0.3, road: true, label: 'by bus' },
-  bus_private: { kmh: 50, overheadH: 0.3, road: true, label: 'by bus' },
-  bike: { kmh: 45, overheadH: 0, road: true, label: 'by bike' },
-  cab: { kmh: 50, overheadH: 0, road: true, label: 'by cab' },
-  rental: { kmh: 55, overheadH: 0.2, road: true, label: 'by car' },
-  own_car: { kmh: 55, overheadH: 0, road: true, label: 'by car' },
-  walk: { kmh: 20, overheadH: 0, road: true, label: 'locally' },
-}
-
-export function estimate(a, b, mode = 'own_car') {
-  const m = MODES[mode] ?? MODES.own_car
-  const straight = distanceKm(a, b)
-  const km = m.road ? straight * 1.3 : straight
-  const hours = km / m.kmh + m.overheadH
-  return { km: Math.round(km / 5) * 5, hours, label: m.label }
-}
-
-export function formatHours(h) {
-  if (h < 1) return `${Math.max(10, Math.round((h * 60) / 10) * 10)} min`
-  if (h < 10) return `${Math.round(h * 2) / 2} h`.replace('.5 h', '½ h')
-  return `${Math.round(h)} h`
-}

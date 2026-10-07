@@ -1,5 +1,7 @@
-import { BOTTOM_COLORS, COMPANIONS, HAIR_COLORS, SHOE_COLORS, SKIN, TOP_COLORS, partnerFor, withDefaults } from '../../avatarOptions'
+import { memo } from 'react'
+import { COMPANIONS, partnerFor, withDefaults } from '../../avatarOptions'
 import { SCENES } from '../../scenes'
+import { DEFS, figureMarkup } from './figure'
 import { Icon } from './Icons'
 
 const INK = '#2b2320'
@@ -14,275 +16,19 @@ function Pivot({ x, y, className, children }) {
   )
 }
 
-function Arm({ from, to, sleeve, skin, full, className, children }) {
-  const [sx, sy] = from
-  const mid = [sx + (to[0] - sx) * 0.42, sy + (to[1] - sy) * 0.42]
+// Patterns and the paper-grain filter the figures reference. Rendered once at the app root.
+export function ArtDefs() {
   return (
-    <Pivot x={sx} y={sy} className={className}>
-      <path d={`M${sx} ${sy} L${to[0]} ${to[1]}`} stroke={full ? sleeve : skin} strokeWidth="10.5" strokeLinecap="round" />
-      {!full && <path d={`M${sx} ${sy} L${mid[0]} ${mid[1]}`} stroke={sleeve} strokeWidth="12" strokeLinecap="round" />}
-      <circle cx={to[0]} cy={to[1] + 2} r="5.5" fill={skin} />
-      {children}
-    </Pivot>
+    <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true" focusable="false">
+      <defs dangerouslySetInnerHTML={{ __html: DEFS }} />
+    </svg>
   )
 }
 
-function Leg({ x, bottom, pants, skin, shoe, className }) {
-  const short = bottom === 'shorts'
-  const bare = bottom === 'skirt' || bottom === 'dress'
-  return (
-    <Pivot x={x} y={124} className={className}>
-      {bare ? (
-        <rect x={x - 5} y={128} width="10" height="58" rx="4.5" fill={skin} />
-      ) : short ? (
-        <>
-          <rect x={x - 5} y={146} width="10" height="40" rx="4.5" fill={skin} />
-          <rect x={x - 7} y={124} width="14" height="28" rx="5" fill={pants} />
-        </>
-      ) : (
-        <rect x={x - 6.5} y={124} width="13" height="62" rx="5" fill={pants} />
-      )}
-      <rect x={x - 8} y={184} width="17" height="9" rx="4.5" fill={shoe} />
-    </Pivot>
-  )
-}
-
-function HairBack({ style, color }) {
-  switch (style) {
-    case 'long':
-      return <path d="M31 44C30 22 50 22 50 22s20 0 19 22l2 36c-10 6-31 6-42 0Z" fill={color} />
-    case 'bob':
-      return <path d="M31 44c-1-20 19-22 19-22s20 2 19 22l1 16c-6 4-34 4-40 0Z" fill={color} />
-    case 'waves':
-      return <path d="M31 44c-2-22 19-23 19-23s21 1 19 23c3 8 1 14 3 22-6 3-8-2-11 2-5-4-17-4-22 0-3-4-5 1-11-2 2-8 0-14 3-22Z" fill={color} />
-    case 'afro':
-      return <circle cx="50" cy="36" r="25" fill={color} />
-    case 'ponytail':
-      return <path d="M63 30c10 2 14 14 10 30-2 7-6 10-8 9 3-10 3-22-4-30Z" fill={color} />
-    default:
-      return null
-  }
-}
-
-function HairFront({ style, color }) {
-  switch (style) {
-    case 'short':
-      return <path d="M33 42c-1-19 7-21 17-21s18 3 17 21c-1-8-6-11-13-11-6 3-14 3-19 0-1 4-2 7-2 11Z" fill={color} />
-    case 'bun':
-      return (
-        <g fill={color}>
-          <circle cx="50" cy="19" r="8" />
-          <path d="M33 42c-1-17 7-20 17-20s18 3 17 20c-3-7-9-10-17-10s-14 3-17 10Z" />
-        </g>
-      )
-    case 'ponytail':
-      return <path d="M33 40c1-14 8-18 17-18s16 4 17 18c-5-6-10-8-17-8s-12 2-17 8Z" fill={color} />
-    case 'curly':
-      return (
-        <g fill={color}>
-          {[[36, 32], [42, 25], [50, 23], [58, 25], [64, 32], [34, 40], [66, 40]].map(([x, y]) => (
-            <circle key={`${x}${y}`} cx={x} cy={y} r="7" />
-          ))}
-        </g>
-      )
-    case 'afro':
-      return <path d="M33 40c2-11 9-15 17-15s15 4 17 15c-5-5-10-6-17-6s-12 1-17 6Z" fill={color} />
-    case 'waves':
-      return <path d="M32 42c0-14 8-20 18-20s19 5 18 18c-3-4-7-6-11-4-4-6-11-6-15-2-4-2-8 2-10 8Z" fill={color} />
-    case 'buzz':
-      return <path d="M33.5 40c1-13 7-17 16.5-17s15.5 4 16.5 17c-3-6-9-8-16.5-8s-13.5 2-16.5 8Z" fill={color} opacity="0.75" />
-    case 'bald':
-      return <path d="M40 27c4-2 9-2 13-1" stroke="#fff" strokeOpacity="0.35" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-    default:
-      return <path d="M33 41c2-13 9-16 17-16s15 3 17 16c-6-7-11-9-17-8-7 1-12 3-17 8Z" fill={color} />
-  }
-}
-
-function Eyes({ type }) {
-  switch (type) {
-    case 'happy':
-      return <path d="M41 45q3-4 6 0M53 45q3-4 6 0" stroke={INK} strokeWidth="1.8" fill="none" strokeLinecap="round" />
-    case 'lashes':
-      return (
-        <g>
-          <circle cx="44" cy="44" r="1.9" fill={INK} /><circle cx="56" cy="44" r="1.9" fill={INK} />
-          <path d="M41 42l-2-2M42.5 41l-1-2.4M59 42l2-2M57.5 41l1-2.4" stroke={INK} strokeWidth="1.2" strokeLinecap="round" />
-        </g>
-      )
-    case 'sleepy':
-      return <path d="M41 44h6M53 44h6" stroke={INK} strokeWidth="1.8" strokeLinecap="round" />
-    default:
-      return (
-        <g>
-          <circle cx="44" cy="44" r="1.8" fill={INK} />
-          <circle cx="56" cy="44" r="1.8" fill={INK} />
-        </g>
-      )
-  }
-}
-
-function Glasses({ type }) {
-  if (type === 'round')
-    return <g fill="none" stroke={INK} strokeWidth="1.6"><circle cx="44" cy="44" r="5" /><circle cx="56" cy="44" r="5" /><path d="M49 44h2" /></g>
-  if (type === 'square')
-    return <g fill="none" stroke={INK} strokeWidth="1.6"><rect x="38.5" y="40" width="10" height="8" rx="2" /><rect x="51.5" y="40" width="10" height="8" rx="2" /><path d="M48.5 43h3" /></g>
-  if (type === 'shades')
-    return <g><rect x="38" y="40" width="10" height="7" rx="3" fill={INK} /><rect x="52" y="40" width="10" height="7" rx="3" fill={INK} /><path d="M48 43h4" stroke={INK} strokeWidth="1.5" /></g>
-  return null
-}
-
-function Headwear({ type, color }) {
-  switch (type) {
-    case 'cap':
-      return (
-        <g>
-          <path d="M33 37c0-12 7-17 17-17s17 5 17 17Z" fill={color} />
-          <path d="M50 35h27c0 4-3 5-8 5H50Z" fill={color} />
-          <path d="M50 35h27c0 4-3 5-8 5H50Z" fill="#000" opacity="0.18" />
-        </g>
-      )
-    case 'beanie':
-      return (
-        <g>
-          <path d="M32 38c0-14 8-20 18-20s18 6 18 20Z" fill={color} />
-          <rect x="31" y="34" width="38" height="7" rx="3.5" fill="#000" opacity="0.22" />
-          <circle cx="50" cy="17" r="5" fill="#fff" />
-        </g>
-      )
-    case 'bucket':
-      return (
-        <g>
-          <path d="M36 34c0-10 6-14 14-14s14 4 14 14Z" fill={color} />
-          <path d="M28 37c4-5 40-5 44 0-6 3-38 3-44 0Z" fill={color} />
-          <path d="M28 37c4-5 40-5 44 0" stroke="#000" strokeOpacity="0.18" strokeWidth="2" fill="none" />
-        </g>
-      )
-    case 'headband':
-      return <path d="M33 34c6-6 28-6 34 0l-1 5c-6-5-26-5-32 0Z" fill={color} />
-    case 'party':
-      return (
-        <g>
-          <path d="M40 27 50 2l10 25Z" fill={color} />
-          <circle cx="47" cy="17" r="1.8" fill="#fff" /><circle cx="53" cy="22" r="1.8" fill="#fff" />
-          <circle cx="50" cy="3" r="3.5" fill="#ffbe0b" />
-        </g>
-      )
-    default:
-      return null
-  }
-}
-
-function Torso({ top, color }) {
-  const base = 'M30 84c0-9 6-14 14-14h12c8 0 14 5 14 14l-2 44H32Z'
-  switch (top) {
-    case 'dress':
-      return <path d="M33 84c0-9 6-14 13-14h8c7 0 13 5 13 14l7 68H26Z" fill={color} />
-    case 'hoodie':
-      return (
-        <g>
-          <path d={base} fill={color} />
-          <path d="M40 70c2 7 18 7 20 0" stroke="#000" strokeOpacity="0.2" strokeWidth="4" fill="none" />
-          <path d="M46 76v10m8-10v10" stroke="#fff" strokeOpacity="0.7" strokeWidth="1.5" />
-          <rect x="39" y="104" width="22" height="12" rx="4" fill="#000" opacity="0.14" />
-        </g>
-      )
-    case 'shirt':
-      return (
-        <g>
-          <path d={base} fill={color} />
-          <path d="M44 70l6 9 6-9M50 79v46" stroke="#fff" strokeOpacity="0.75" strokeWidth="2" fill="none" />
-          {[88, 100, 112].map((y) => <circle key={y} cx="52.5" cy={y} r="1.2" fill="#fff" opacity="0.8" />)}
-        </g>
-      )
-    case 'jacket':
-      return (
-        <g>
-          <path d={base} fill={color} />
-          <path d="M45 70h10l-1 58h-8Z" fill="#f4f1ea" />
-          <path d="M45 70l-3 18 8 6M55 70l3 18-8 6" stroke="#000" strokeOpacity="0.25" strokeWidth="2" fill="none" />
-        </g>
-      )
-    default:
-      return (
-        <g>
-          <path d={base} fill={color} />
-          <path d="M44 70q6 5 12 0" stroke="#000" strokeOpacity="0.15" strokeWidth="2" fill="none" />
-        </g>
-      )
-  }
-}
-
-// Scene dressing: a stand-in companion wears the scene's palette; a real person keeps their own outfit
-// and only gains what they are not already wearing (a cap at the beach, a beanie in the hills).
-function dressFor(a, scene, i, own) {
-  const o = scene.outfit
-  const look = {
-    shirt: own ? TOP_COLORS[a.topColor] : o.shirts[i % o.shirts.length],
-    pants: own ? BOTTOM_COLORS[a.bottomColor] : o.pants[i % o.pants.length],
-    shoe: SHOE_COLORS[a.shoeColor] ?? SHOE_COLORS[0],
-    top: a.top,
-    bottom: a.bottom,
-    headwear: a.headwear,
-    glasses: a.glasses,
-    scarf: o.scarf,
-    gear: o.gear,
-  }
-  if (!own && o.dress && a.body === 'female') look.top = 'dress'
-  if (o.shorts && look.bottom === 'pants' && look.top !== 'dress') look.bottom = 'shorts'
-  if (o.hat && look.headwear === 'none') look.headwear = o.hat
-  if (o.shades && look.glasses === 'none' && i % 2 === 0) look.glasses = 'shades'
-  if (look.top === 'dress') look.bottom = 'dress'
-  return look
-}
-
-export function Person({ avatar, scene, index = 0, own = true, pose = 'stand', delay = 0, gearInHand }) {
-  const a = withDefaults(avatar)
-  const look = dressFor(a, scene, index, own)
-  const skin = SKIN[a.skin] ?? SKIN[2]
-  const hair = HAIR_COLORS[a.hairColor] ?? HAIR_COLORS[0]
-  const hatColor = TOP_COLORS[(a.topColor + 4) % TOP_COLORS.length]
-  const armL = pose === 'holdL' ? [16, 112] : [27, 120]
-  const armR = pose === 'holdR' ? [84, 112] : pose === 'wave' ? [84, 42] : [73, 120]
-  const walking = pose === 'walk'
-  const fullSleeves = ['hoodie', 'shirt', 'jacket'].includes(look.top)
-  const rose = (side) => gearInHand === side && <g transform={`translate(${(side === 'left' ? armL : armR)[0] - 12} ${(side === 'left' ? armL : armR)[1] - 26})`}><Icon name="rose" size={24} /></g>
-
-  return (
-    <g className={`fig ${walking ? 'fig-walk' : ''}`} style={{ '--delay': `${delay}s` }}>
-      {look.gear === 'backpack' && <rect x="27" y="74" width="46" height="50" rx="12" fill="#6b5a4a" />}
-      <HairBack style={a.hair} color={hair} />
-      <Leg x={42} bottom={look.bottom} pants={look.pants} skin={skin} shoe={look.shoe} className={walking ? 'leg leg-a' : 'leg'} />
-      <Leg x={58} bottom={look.bottom} pants={look.pants} skin={skin} shoe={look.shoe} className={walking ? 'leg leg-b' : 'leg'} />
-      {look.bottom === 'skirt' && <path d="M32 122h36l5 30H27Z" fill={look.pants} />}
-      <Arm from={[34, 78]} to={armL} sleeve={look.shirt} skin={skin} full={fullSleeves} className={walking ? 'arm arm-swing-a' : 'arm'}>
-        {rose('left')}
-      </Arm>
-      <rect x="45" y="55" width="10" height="18" rx="4" fill={skin} />
-      <Torso top={look.top} color={look.shirt} />
-      {look.gear === 'backpack' && <path d="M38 72l-2 34m26-34 2 34" stroke="#4a3c30" strokeWidth="4" strokeLinecap="round" />}
-      {look.scarf && <path d="M38 66h24v9H38Zm16 6h8v20h-8Z" fill="#d64545" />}
-      <circle cx="33.5" cy="45" r="4" fill={skin} />
-      <circle cx="66.5" cy="45" r="4" fill={skin} />
-      <circle cx="50" cy="42" r="17" fill={skin} />
-      <HairFront style={a.hair} color={hair} />
-      {a.brows !== 'none' && (
-        <path d="M40.5 38.5q3.5-2 7 0M52.5 38.5q3.5-2 7 0" stroke={hair} strokeWidth={a.brows === 'bold' ? 2.6 : 1.4} fill="none" strokeLinecap="round" />
-      )}
-      <Eyes type={a.eyes} />
-      {a.facialHair === 'beard' && <path d="M37 45c2 14 8 16 13 16s11-2 13-16c-4 7-8 8-13 8s-9-1-13-8Z" fill={hair} />}
-      {a.facialHair === 'stubble' && <path d="M38 48c3 10 8 12 12 12s9-2 12-12c-3 5-7 6-12 6s-9-1-12-6Z" fill={hair} opacity="0.28" />}
-      {a.facialHair === 'mustache' && <path d="M44 49.5c3-2 4.5-1 6 0 1.5-1 3-2 6 0-2 1.5-4 1.5-6 .5-2 1-4 1-6-.5Z" fill={hair} />}
-      <circle cx="40" cy="50" r="3" fill="#ff8a80" opacity="0.3" />
-      <circle cx="60" cy="50" r="3" fill="#ff8a80" opacity="0.3" />
-      <path d="M46 52q4 3 8 0" stroke={INK} strokeWidth="1.6" fill="none" strokeLinecap="round" />
-      <Glasses type={look.glasses} />
-      <Headwear type={look.headwear} color={look.headwear === 'party' ? look.shirt : hatColor} />
-      <Arm from={[66, 78]} to={armR} sleeve={look.shirt} skin={skin} full={fullSleeves} className={pose === 'wave' ? 'arm arm-wave' : walking ? 'arm arm-swing-b' : 'arm'}>
-        {rose('right')}
-      </Arm>
-    </g>
-  )
-}
+// One person, in the shared 200 x 520 figure box.
+export const Figure = memo(function Figure({ avatar, sceneId = 'everyday', index = 0, bust = false }) {
+  return <g dangerouslySetInnerHTML={{ __html: figureMarkup(avatar, sceneId, index, bust) }} />
+})
 
 // ---------- pets ----------
 const DOGS = {
@@ -412,62 +158,67 @@ function Suitcase({ x, color }) {
   return (
     <g transform={`translate(${x} 0)`}>
       <g className="suitcase">
-        <path d="M14 118v-14" stroke="#4a4a4a" strokeWidth="3" strokeLinecap="round" />
-        <rect x="0" y="118" width="28" height="44" rx="6" fill={color} />
-        <path d="M8 124v32m12-32v32" stroke="#000" strokeOpacity="0.15" strokeWidth="2" />
-        <circle cx="6" cy="166" r="4" fill={INK} /><circle cx="22" cy="166" r="4" fill={INK} />
+        <path d="M22 410V384H48V410" stroke="#3a3540" strokeWidth="6" fill="none" strokeLinejoin="round" />
+        <rect x="0" y="408" width="70" height="96" rx="12" fill={color} />
+        <rect x="0" y="408" width="70" height="96" rx="12" fill="url(#cx-dots)" opacity="0.18" />
+        <path d="M20 418v76M50 418v76" stroke="#000" strokeOpacity="0.18" strokeWidth="5" />
+        <rect x="10" y="440" width="50" height="14" rx="3" fill="#efe3c8" opacity="0.85" />
+        <circle cx="14" cy="508" r="7" fill="#2a1d18" /><circle cx="56" cy="508" r="7" fill="#2a1d18" />
       </g>
     </g>
   )
 }
 
+const TOP = -26
+const H = 552
+
 /**
  * The people going on the plan. `me` is the viewer's avatar; `friends` are the avatars of other members
  * who are real users; anyone else up to `count` is drawn as a stand-in companion.
+ * In any scene but everyday, everyone changes into that scene's look.
  */
 export default function Crew({ count = 1, me, friends = [], sceneId = 'everyday', size = 'lg', label }) {
   const scene = SCENES[sceneId] ?? SCENES.everyday
   const mine = withDefaults(me)
   const n = Math.max(1, count, 1 + friends.length)
   const pet = mine.pet?.kind !== 'none' ? mine.pet : null
-  const petSpace = pet ? (n >= 3 ? 92 : 74) : 0
+  const petSpace = pet ? 150 : 0
 
   let people
   let width
   if (n === 1) {
-    people = [{ a: mine, own: true, x: 30 + petSpace, pose: 'wave' }]
-    width = 160 + petSpace
+    people = [{ a: mine, x: petSpace }]
+    width = 200 + petSpace
   } else if (n === 2) {
-    const partner = friends[0] ? { a: withDefaults(friends[0]), own: true } : { a: partnerFor(mine), own: false }
-    people = [
-      { a: mine, own: true, x: 20 + petSpace, pose: 'holdR' },
-      { ...partner, x: 88 + petSpace, pose: 'holdL' },
-    ]
-    width = 208 + petSpace
+    const partner = friends[0] ? withDefaults(friends[0]) : partnerFor(mine)
+    people = [{ a: mine, x: petSpace }, { a: partner, x: petSpace + 132 }]
+    width = 332 + petSpace
   } else {
     const visible = Math.min(n, 5)
-    const crew = [{ a: mine, own: true }, ...friends.slice(0, visible - 1).map((f) => ({ a: withDefaults(f), own: true }))]
+    const crew = [mine, ...friends.slice(0, visible - 1).map((f) => withDefaults(f))]
     let c = 0
-    while (crew.length < visible) crew.push({ a: COMPANIONS[c++ % COMPANIONS.length], own: false })
-    people = crew.map((p, i) => ({ ...p, x: 40 + petSpace + i * 70, pose: 'walk' }))
-    width = 40 + petSpace + visible * 70 + 40
+    while (crew.length < visible) crew.push(COMPANIONS[c++ % COMPANIONS.length])
+    people = crew.map((a, i) => ({ a, x: 60 + petSpace + i * 118 }))
+    width = 60 + petSpace + (visible - 1) * 118 + 200 + 60
   }
   const extra = n > 5 ? n - 5 : 0
-  const rose = scene.outfit.gear === 'rose'
+  const accent = scene.palette.accent
 
   return (
     <div className={`crew crew-${size}`} role="img" aria-label={label ?? (n === 1 ? 'You' : n === 2 ? 'You and one other person' : `A group of ${n} travellers`)}>
-      <svg viewBox={`0 0 ${width} 212`} className="crew-svg">
-        <ellipse cx={width / 2} cy="198" rx={width / 2 - 14} ry="9" fill="#000" opacity="0.12" />
-        {n >= 3 && <Suitcase x={8 + petSpace} color={scene.outfit.shirts[3 % scene.outfit.shirts.length]} />}
-        {people.map(({ a, own, x, pose }, i) => (
+      <svg viewBox={`0 ${TOP} ${width} ${H}`} className="crew-svg">
+        <ellipse cx={width / 2} cy="514" rx={width / 2 - 20} ry="12" fill="#000" opacity="0.12" />
+        {n >= 3 && <Suitcase x={petSpace} color={accent} />}
+        {people.map(({ a, x }, i) => (
           <g key={i} transform={`translate(${x} 0)`}>
-            <Person avatar={a} scene={scene} index={i} own={own} pose={pose} delay={i * -0.35} gearInHand={rose && n === 2 ? (i === 0 ? 'left' : 'right') : null} />
+            <g className={`fig ${n >= 3 ? 'fig-walk' : ''}`} style={{ '--delay': `${i * -0.35}s` }}>
+              <Figure avatar={a} sceneId={sceneId} index={i} />
+            </g>
           </g>
         ))}
-        {n >= 3 && <Suitcase x={width - 38} color={scene.outfit.shirts[1 % scene.outfit.shirts.length]} />}
+        {n >= 3 && <Suitcase x={width - 62} color="#3e6b5a" />}
         {pet && (
-          <g transform={`translate(${n >= 3 ? 2 : 6} 194) scale(0.95)`}>
+          <g transform={`translate(${n >= 3 ? 0 : 4} 512) scale(2.2)`} filter="url(#cx-grain)">
             <Pet pet={pet} walking={n >= 3} />
           </g>
         )}
@@ -489,8 +240,17 @@ export default function Crew({ count = 1, me, friends = [], sceneId = 'everyday'
 // A head-and-shoulders portrait for chips, lists and the editor's option tiles.
 export function Portrait({ avatar, size = 32, sceneId = 'everyday', className = '' }) {
   return (
-    <svg viewBox="18 4 64 74" width={size} height={size} className={`portrait ${className}`} aria-hidden="true">
-      <Person avatar={avatar} scene={SCENES[sceneId] ?? SCENES.everyday} own pose="stand" />
+    <svg viewBox="46 4 108 108" width={size} height={size} className={`portrait ${className}`} aria-hidden="true">
+      <Figure avatar={avatar} sceneId={sceneId} bust />
+    </svg>
+  )
+}
+
+// A whole person, for tiles that show an outfit.
+export function FullBody({ avatar, size = 84, sceneId = 'everyday' }) {
+  return (
+    <svg viewBox={`20 ${TOP} 160 ${H}`} width={size * 0.3} height={size} aria-hidden="true">
+      <Figure avatar={avatar} sceneId={sceneId} />
     </svg>
   )
 }

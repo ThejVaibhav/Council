@@ -20,7 +20,7 @@ export function SystemLine({ children }) {
 export function UserMessage({ request, author }) {
   const c = request.constraints || {}
   const chips = [
-    c.budget && `₹${String(c.budget).replace(/\s*INR$/i, '')}`,
+    c.budget && (/^\d+(\s*INR)?$/i.test(String(c.budget).trim()) ? `₹${Number(String(c.budget).replace(/\D/g, '')).toLocaleString('en-IN')}` : `₹${String(c.budget).replace(/\s*INR$/i, '')}`),
     c.headcount && `${c.headcount} people`,
     c.dates,
     c.location && c.destination ? `${c.location} → ${c.destination}` : c.location,

@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { Pencil, Plus, RotateCcw, UserPlus } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { Pencil, Plus, RotateCcw, Share2, UserPlus } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ROUND_LABEL, chatStatus } from '../agents'
+import { DEMO, api } from '../api'
 import { AgentMessage, MissingMessage, SystemLine, TypingMessage, UserMessage } from './Messages'
 import InvitePanel from './InvitePanel'
 import Crew from './art/Crew'
@@ -11,12 +12,19 @@ export default function DebateView({ debate, me, sceneId, title, onNew, onEdit, 
   const { request, items, pending, result, status, error, plan } = debate
   const endRef = useRef(null)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const live = status === 'running' || status === 'moderating'
   const rounds = items.filter((i) => i.kind === 'round').length
-  const people = request?.constraints?.headcount ?? 1
+  const headcount = request?.constraints?.headcount ?? 1
   const others = (plan?.members ?? []).filter((m) => m.username !== me.username)
   const owner = plan?.members?.find((m) => m.role === 'owner')
   const mineToEdit = !owner || owner.username === me.username
+  const people = plan?.members?.length ? plan.members : [me]
+  const getLink = useCallback(async () => {
+    if (DEMO || !plan) return null
+    const code = await api.sharePlan(plan.id)
+    return `${window.location.origin}${window.location.pathname}?recap=${code}`
+  }, [plan])
 
   useEffect(() => {
     if (live) endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -30,7 +38,7 @@ export default function DebateView({ debate, me, sceneId, title, onNew, onEdit, 
     <motion.main className="debate" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
       <div className="debate-top">
         <header className="debate-head glass">
-          <Crew count={people} me={me.avatar} friends={others.map((m) => m.avatar)} sceneId={sceneId} size="sm" />
+          <Crew count={headcount} me={me.avatar} friends={others.map((m) => m.avatar)} sceneId={sceneId} size="sm" />
           <div className="debate-title">
             <span className="debate-name">{title}</span>
             <span className={`debate-status ${live ? 'is-live' : ''}`}>
@@ -61,7 +69,7 @@ export default function DebateView({ debate, me, sceneId, title, onNew, onEdit, 
           ))}
         </AnimatePresence>
         {status === 'moderating' && <SystemLine>The Moderator is weighing both rounds</SystemLine>}
-        {result && <Verdict plan={result} constraints={request?.constraints} />}
+        {result && <Verdict plan={result} brief={request?.brief} constraints={request?.constraints} items={items} people={people} sceneId={sceneId} getLink={getLink} sharing={sharing} onShare={() => setSharing(true)} onCloseShare={() => setSharing(false)} />}
         {status === 'error' && (
           <div className="error-card glass" role="alert">
             <strong>The debate stopped.</strong>
@@ -87,6 +95,11 @@ export default function DebateView({ debate, me, sceneId, title, onNew, onEdit, 
               {mineToEdit && (
                 <button type="button" className="btn btn-ghost" onClick={onEdit}>
                   <Pencil size={15} /> Edit plan
+                </button>
+              )}
+              {result && (
+                <button type="button" className="btn btn-ghost" onClick={() => setSharing(true)}>
+                  <Share2 size={15} /> Share
                 </button>
               )}
               <button type="button" className="btn btn-accent" onClick={onNew}>

@@ -6,14 +6,13 @@ from uuid import UUID
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from app import db, plans, slots, users
+from app.plans import Constraints
 from app.config import get_settings
 from app.orchestrator import create_session, run_debate
-from app.travel import TRAVEL_MODES
 
 
 @asynccontextmanager
@@ -32,19 +31,11 @@ app.add_middleware(
 )
 app.include_router(users.router)
 app.include_router(plans.router)
+app.include_router(plans.recap_router)
 
 
 _claim_slot = slots.claim
 _release_slot = slots.release
-
-
-class Constraints(BaseModel):
-    budget: str | int | float | None = None
-    headcount: int | None = Field(default=None, ge=1, le=100)
-    dates: str | None = Field(default=None, max_length=200)
-    location: str | None = Field(default=None, max_length=200)
-    destination: str | None = Field(default=None, max_length=200)
-    travel: list[Literal[tuple(TRAVEL_MODES)]] | None = Field(default=None, max_length=len(TRAVEL_MODES))  # type: ignore[valid-type]
 
 
 class BriefIn(BaseModel):

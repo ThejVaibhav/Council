@@ -7,13 +7,15 @@ import DebateView from './components/DebateView'
 import Friends from './components/Friends'
 import Planner from './components/Planner'
 import PlansList from './components/PlansList'
+import RecapView from './components/RecapView'
 import TopBar from './components/TopBar'
+import { ArtDefs } from './components/art/Crew'
 import Scene from './components/art/Scene'
 import { useDebate } from './hooks/useDebate'
 import { SCENARIOS } from './scenarios'
 import { SCENES, detectScene } from './scenes'
 
-const EMPTY_DRAFT = { brief: '', constraints: { budget: '', dates: '', location: '', destination: '' }, people: 1, friendIds: [], travel: [], active: null }
+const EMPTY_DRAFT = { brief: '', constraints: { budget: '', dates: '', location: '', destination: '' }, people: 1, friendIds: [], travel: [], origin: null, active: null }
 
 function useDebounced(value, ms) {
   const [v, setV] = useState(value)
@@ -34,7 +36,7 @@ function titleFor(brief) {
 function readLink() {
   if (DEMO) return {}
   const p = new URLSearchParams(window.location.search)
-  return { join: p.get('join'), plan: p.get('plan') }
+  return { join: p.get('join'), plan: p.get('plan'), recap: p.get('recap') }
 }
 
 function setLink(params) {
@@ -56,6 +58,8 @@ export default function App() {
   const [override, setOverride] = useState(null)
   const [friendLists, setFriendLists] = useState({ friends: [], incoming: [], outgoing: [] })
   const [link] = useState(readLink)
+  const [recapCode, setRecapCode] = useState(link.recap)
+  const [recapScene, setRecapScene] = useState('everyday')
 
   const refreshFriends = useCallback(() => {
     api.friends().then(setFriendLists).catch(() => {})
@@ -153,6 +157,7 @@ export default function App() {
       people: c.headcount ?? 1,
       friendIds: (debate.plan?.members ?? []).filter((m) => m.username !== user.username).map((m) => m.id),
       travel: c.travel ?? [],
+      origin: c.origin && c.origin.label === c.location ? c.origin : null,
       active: null,
     })
     debate.reset()
@@ -176,7 +181,8 @@ export default function App() {
   const detected = useMemo(() => detectScene(briefForScene), [briefForScene])
   let page = !user ? 'auth' : view
   if (booting) page = 'boot'
-  const sceneId = ['plan', 'debate'].includes(page) ? (page === 'debate' ? (debate.plan?.scene ?? override ?? detected) : (override ?? detected)) : 'everyday'
+  if (recapCode) page = 'recap'
+  const sceneId = page === 'recap' ? recapScene : ['plan', 'debate'].includes(page) ? (page === 'debate' ? (debate.plan?.scene ?? override ?? detected) : (override ?? detected)) : 'everyday'
   const palette = SCENES[sceneId]?.palette ?? SCENES.everyday.palette
 
   useEffect(() => {
@@ -189,7 +195,8 @@ export default function App() {
   return (
     <MotionConfig reducedMotion="user">
       <div className={`app ${palette.dark ? 'is-dark' : 'is-light'}`} style={style}>
-        <Scene sceneId={sceneId} dimmed={page === 'debate' || page === 'friends' || page === 'plans'} />
+        <ArtDefs />
+        <Scene sceneId={sceneId} dimmed={['debate', 'friends', 'plans', 'recap'].includes(page)} />
         <TopBar
           user={page === 'create' ? null : user}
           view={view}
@@ -200,6 +207,19 @@ export default function App() {
           demo={DEMO}
         />
         <AnimatePresence mode="wait">
+          {page === 'recap' && (
+            <RecapView
+              key="recap"
+              code={recapCode}
+              onScene={setRecapScene}
+              signedIn={Boolean(user)}
+              onStart={() => {
+                setRecapCode(null)
+                setLink({})
+                window.scrollTo({ top: 0 })
+              }}
+            />
+          )}
           {page === 'auth' && <Auth key="auth" onSignup={auth(api.signup)} onLogin={auth(api.login)} busy={authBusy} error={authError} demo={DEMO} joining={Boolean(link.join)} />}
           {(page === 'create' || page === 'editor') && (
             <CharacterEditor key={page} user={user} mode={page === 'create' ? 'create' : 'edit'} onSave={saveCharacter} onCancel={page === 'editor' ? () => setView(debate.status !== 'idle' ? 'debate' : 'plan') : null} busy={authBusy} error={authError} />
@@ -207,7 +227,7 @@ export default function App() {
           {page === 'plan' && (
             <Planner key="planner" me={user} friends={friendLists.friends} draft={draft} setDraft={setDraft} sceneId={sceneId} sceneAuto={!override} onPickScene={setOverride} onSend={send} />
           )}
-          {page === 'plans' && <PlansList key="plans" onOpen={openPlan} onNew={newPlan} />}
+          {page === 'plans' && <PlansList key="plans" me={user} onOpen={openPlan} onNew={newPlan} />}
           {page === 'friends' && <Friends key="friends" me={user} onChanged={refreshFriends} />}
           {page === 'debate' && (
             <DebateView

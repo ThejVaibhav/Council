@@ -1,11 +1,14 @@
 import { motion } from 'motion/react'
-import { Check, Copy } from 'lucide-react'
-import { useState } from 'react'
+import { Share2 } from 'lucide-react'
+import { useMemo } from 'react'
 import { AGENTS, budgetCap, formatCost } from '../agents'
 import { TRAVEL } from '../avatarOptions'
-import AgentAvatar from './AgentAvatar'
-import RouteCard from './art/RouteCard'
+import { MODE_INFO, fmtKm } from '../geo'
+import { useJourney } from '../hooks/useJourney'
 import { findPlace, placeInText } from '../places'
+import AgentAvatar from './AgentAvatar'
+import Journey from './Journey'
+import ShareSheet from './ShareSheet'
 
 // The trade-off text names the winning agent first ("Budget, because ..."); use it to mark the winner.
 function winnerOf(text) {
@@ -13,30 +16,24 @@ function winnerOf(text) {
   return AGENTS[first] && first !== 'moderator' ? first : null
 }
 
-function planAsText(plan) {
-  const cost = formatCost(plan.estimated_cost)
-  return [plan.title, '', plan.summary, '', plan.description, ...(cost ? ['', `Estimated total: ${cost}`] : [])].join('\n')
-}
-
-export default function Verdict({ plan, constraints }) {
-  const [copied, setCopied] = useState(false)
+/**
+ * The pinned decision: a boarding-pass ticket, the journey, the plan and who won what.
+ * `items` and `people` feed the share message; `getLink` makes a public recap link.
+ */
+export default function Verdict({ plan, brief, constraints, items = [], people = [], sceneId = 'everyday', getLink, sharing = false, onShare, onCloseShare }) {
   const cost = formatCost(plan.estimated_cost)
   const cap = budgetCap(constraints)
   const share = cap && plan.estimated_cost != null ? plan.estimated_cost / cap : null
-  const people = constraints?.headcount
-  const routeFrom = findPlace(constraints?.location)
-  const routeTo = findPlace(constraints?.destination) ?? placeInText(`${plan.title} ${plan.summary} ${plan.description}`, routeFrom)
-  const route = routeFrom && routeTo ? { from: routeFrom, to: routeTo, mode: constraints?.travel?.length === 1 && constraints.travel[0] === 'flight' ? 'flight' : (constraints?.travel?.[0] ?? 'own_car') } : null
+  const headcount = constraints?.headcount
 
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(planAsText(plan))
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
-    } catch {
-      setCopied(false)
-    }
-  }
+  // Where to: the typed destination, or the first known place the plan itself names.
+  const fromText = constraints?.origin?.label ?? constraints?.location ?? ''
+  const guessedTo = useMemo(() => (constraints?.destination || constraints?.dest ? null : placeInText(`${plan.title} ${plan.summary} ${plan.description}`, findPlace(constraints?.location))), [plan, constraints])
+  const toText = constraints?.dest?.label ?? constraints?.destination ?? guessedTo?.name ?? ''
+  const journey = useJourney({ fromText, toText, origin: constraints?.origin, dest: constraints?.dest, modes: constraints?.travel ?? [] })
+  const route = journey.status === 'ready'
+    ? { from: journey.from.label, to: journey.to.label, km: fmtKm(journey.summary.km), time: journey.summary.time, modes: journey.legs.length > 1 || constraints?.travel?.length ? journey.summary.modes : MODE_INFO[journey.legs[0].mode]?.label }
+    : null
 
   return (
     <motion.section
@@ -53,21 +50,24 @@ export default function Verdict({ plan, constraints }) {
             <span className="ticket-brand">
               <AgentAvatar agent="moderator" size="xs" /> Council · decision
             </span>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={copy}>
-              {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copied' : 'Copy plan'}
+            <button type="button" className="btn btn-accent btn-sm" onClick={onShare}>
+              <Share2 size={14} /> Share
             </button>
           </div>
           <h2 className="display ticket-title">{plan.title}</h2>
           <p className="ticket-summary">{plan.summary}</p>
           <dl className="ticket-facts">
-            {people && (
-              <div><dt>Travellers</dt><dd>{people}</dd></div>
+            {headcount && (
+              <div><dt>Travellers</dt><dd>{headcount}</dd></div>
             )}
             {constraints?.dates && (
               <div><dt>When</dt><dd>{constraints.dates}</dd></div>
             )}
-            {constraints?.location && (
-              <div><dt>From</dt><dd>{constraints.location}</dd></div>
+            {fromText && (
+              <div><dt>From</dt><dd>{fromText}</dd></div>
+            )}
+            {toText && (
+              <div><dt>To</dt><dd>{route?.to ?? toText}</dd></div>
             )}
             {constraints?.travel?.length > 0 && (
               <div><dt>Getting there</dt><dd>{constraints.travel.map((t) => TRAVEL.find((x) => x.id === t)?.label ?? t).join(', ')}</dd></div>
@@ -89,10 +89,10 @@ export default function Verdict({ plan, constraints }) {
         </div>
       </div>
 
-      {route && (
+      {fromText && toText && journey.status !== 'idle' && (
         <div className="plan-detail glass">
-          <span className="field-label">The route</span>
-          <RouteCard compact from={constraints.location} to={route.to.name} fromPlace={route.from} toPlace={route.to} mode={route.mode} />
+          <span className="field-label">The journey</span>
+          <Journey journey={journey} fromText={fromText} toText={toText} compact />
         </div>
       )}
 
@@ -131,6 +131,27 @@ export default function Verdict({ plan, constraints }) {
           </ul>
         </div>
       )}
+      <div className="verdict-share glass">
+        <div>
+          <b>Tell the group</b>
+          <span>A story-style recap with every pitch, the clash and the final call, ready for WhatsApp, Instagram, Messages or mail.</span>
+        </div>
+        <button type="button" className="btn btn-accent" onClick={onShare}>
+          <Share2 size={16} /> Share the decision
+        </button>
+      </div>
+
+      <ShareSheet
+        open={sharing}
+        onClose={onCloseShare}
+        plan={plan}
+        request={{ brief, constraints }}
+        items={items}
+        people={people}
+        sceneId={sceneId}
+        route={route}
+        getLink={getLink}
+      />
     </motion.section>
   )
 }

@@ -27,3 +27,7 @@ The full debate to final plan completes in under a minute for a typical brief. T
 ## Primary demo scenarios to seed
 
 A weekend trip for a group of friends with a tight budget and only two days. A date night decision with one clear constraint, for example an early flight the next morning. A birthday outing for a mixed group with very different energy levels. These three exist so Phase 4 in BUILD_PLAN.md has concrete material to test against rather than building directly against whatever the user types first.
+
+## Added at the product owner's request
+
+Accounts, friends and shared plans (see ARCHITECTURE.md). Characters redrawn in a retro textured style, dressed per scene. A journey view and real map built on free OpenStreetMap services, with the trip split into legs by travel mode. Sharing the decision as a story, a quick take or an image card, with a public read-only recap link.

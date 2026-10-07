@@ -6,6 +6,37 @@ export { DEMO }
 
 const initial = { status: 'idle', plan: null, request: null, items: [], pending: [], result: null, error: null }
 
+// Applies one streamed event to the debate state. Shared by the live view and the read-only recap.
+export function reduceEvent(s, type, data) {
+  const drop = (pending, agent) => pending.filter((a) => a !== agent)
+  switch (type) {
+    case 'round_start':
+      return { ...s, status: 'running', items: [...s.items, { kind: 'round', round: data.round }], pending: [...SPECIALISTS] }
+    case 'turn':
+      return { ...s, items: [...s.items, { kind: 'turn', ...data }], pending: drop(s.pending, data.agent) }
+    case 'agent_error':
+      return { ...s, items: [...s.items, { kind: 'missing', ...data }], pending: drop(s.pending, data.agent) }
+    case 'moderator_start':
+      return { ...s, status: 'moderating', pending: ['moderator'] }
+    case 'final_plan':
+      return { ...s, result: data, pending: [] }
+    case 'error':
+      return { ...s, status: 'error', error: data.error, pending: [] }
+    case 'done':
+      return { ...s, status: 'done', pending: [] }
+    default:
+      return s
+  }
+}
+
+/** Debate state from a finished (or partly finished) recap, without streaming. */
+export function stateFromRecap(rec) {
+  let s = { ...initial, request: { brief: rec.brief, constraints: rec.constraints } }
+  for (const ev of rec.events ?? []) s = reduceEvent(s, ev.type, ev)
+  if (!['done', 'error'].includes(s.status)) s = { ...s, status: s.result ? 'done' : 'partial', pending: [] }
+  return s
+}
+
 // Follows one shared plan: replays what already happened, then the live debate.
 // status: idle | loading | running | moderating | done | error
 export function useDebate() {
@@ -24,37 +55,13 @@ export function useDebate() {
     const request = { brief: plan.brief, constraints: plan.constraints }
     setState({ ...initial, status: plan.status === 'complete' ? 'loading' : 'running', plan, request })
     const update = (fn) => !controller.signal.aborted && setState(fn)
-    const drop = (pending, agent) => pending.filter((a) => a !== agent)
     let finished = false
     try {
       await api.streamPlan(
         plan.id,
         (type, data) => {
-          switch (type) {
-            case 'round_start':
-              update((s) => ({ ...s, status: 'running', items: [...s.items, { kind: 'round', round: data.round }], pending: [...SPECIALISTS] }))
-              break
-            case 'turn':
-              update((s) => ({ ...s, items: [...s.items, { kind: 'turn', ...data }], pending: drop(s.pending, data.agent) }))
-              break
-            case 'agent_error':
-              update((s) => ({ ...s, items: [...s.items, { kind: 'missing', ...data }], pending: drop(s.pending, data.agent) }))
-              break
-            case 'moderator_start':
-              update((s) => ({ ...s, status: 'moderating', pending: ['moderator'] }))
-              break
-            case 'final_plan':
-              update((s) => ({ ...s, result: data, pending: [] }))
-              break
-            case 'error':
-              finished = true
-              update((s) => ({ ...s, status: 'error', error: data.error, pending: [] }))
-              break
-            case 'done':
-              finished = true
-              update((s) => ({ ...s, status: 'done', pending: [] }))
-              break
-          }
+          if (type === 'error' || type === 'done') finished = true
+          update((s) => reduceEvent(s, type, data))
         },
         controller.signal,
       )

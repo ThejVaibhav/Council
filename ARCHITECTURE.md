@@ -52,4 +52,12 @@ The original anonymous /sessions endpoints still exist for scripts and tests.
 
 ## Travel modes and routes
 
-The planner sends the travel modes the group is open to as a constraint. The orchestrator turns them into an explicit instruction: plan only with these modes, and say so if none serves the destination. The route map in the UI is an illustration driven by a small built-in gazetteer (frontend/src/places.js) for rough distance and time; there is no maps API.
+The planner sends the travel modes the group is open to as a constraint. The orchestrator turns them into an explicit instruction: plan only with these modes, and say so if none serves the destination.
+
+Routes use free, keyless services straight from the browser (frontend/src/geo.js): OpenStreetMap Nominatim to find places and name the device's location, OSRM for road geometry and distance, and CARTO's OSM basemap for the map tiles (Leaflet, loaded lazily). Every call has a timeout, results are cached in localStorage, and when a service is unreachable the app falls back to the built-in gazetteer in frontend/src/places.js and straight-line estimates. planLegs() splits a trip into legs from the chosen modes (nearest real airports for flights, a station or bus stand near each end for rail and bus, a meetup point when a bike or walk leads into a car). When a plan starts, both ends are pinned as coordinates in the constraints so every member sees the same route.
+
+## Sharing and recaps
+
+frontend/src/story.js writes the share text from the transcript: a short story (the ask, round one's pitches, round two's reactions, the verdict with cost and route, who won what), a one-line quick take, and a plain-text email. Wording varies per plan from a seeded pick, so the same plan always reads the same. frontend/src/shareCard.js draws the image card on a canvas: the crew (rendered from the same SVG figures) in the scene's outfits, the opening pitches, the call, facts and stamps; it measures every block first so long titles or summaries never overflow.
+
+POST /plans/{id}/share mints a share code (separate from the invite code) and GET /recap/{code} serves a read-only view without sign-in: the brief, members' display names and characters, the stored debate events and the decision. The frontend opens it at ?recap=CODE and replays the events through the same reducer the live view uses.

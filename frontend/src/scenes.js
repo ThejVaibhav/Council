@@ -174,7 +174,9 @@ const GROUP_NOUN = '(?:of us|people|persons|friends|adults|guys|girls|members|pa
 export function detectPeople(text) {
   if (!text) return null
   const toN = (w) => NUMBER_WORDS[w.toLowerCase()] ?? parseInt(w, 10)
-  const counted = text.match(new RegExp(`\\b${NUM}\\s+${GROUP_NOUN}\\b`, 'i')) || text.match(new RegExp(`\\b(?:for|party of|group of)\\s+${NUM}\\b(?!\\s*(?:days?|nights?|hours?|hrs?|km|rupees|k\\b|pm|am))`, 'i'))
+  // "one of us has a flight" talks about a person in the group, not the group's size.
+  const grouped = [...text.matchAll(new RegExp(`\\b${NUM}\\s+(${GROUP_NOUN})\\b`, 'gi'))].find((m) => !(toN(m[1]) < 2 && /of us/i.test(m[2])))
+  const counted = grouped || text.match(new RegExp(`\\b(?:for|party of|group of)\\s+${NUM}\\b(?!\\s*(?:days?|nights?|hours?|hrs?|km|rupees|k\\b|pm|am))`, 'i'))
   if (counted) {
     const n = toN(counted[1])
     if (n >= 1 && n <= 20) return n

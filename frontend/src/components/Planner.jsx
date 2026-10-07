@@ -1,12 +1,14 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowRight, Bike, Bus, CalendarDays, Car, CarTaxiFront, Check, ChevronDown, Footprints, IndianRupee, KeyRound, MapPin, Minus, Plane, Plus, TrainFront, Wand2 } from 'lucide-react'
+import { ArrowRight, Bike, Bus, CalendarDays, Car, CarTaxiFront, Check, ChevronDown, Footprints, IndianRupee, KeyRound, LoaderCircle, LocateFixed, MapPin, Minus, Plane, Plus, TrainFront, Wand2 } from 'lucide-react'
 import { TRAVEL } from '../avatarOptions'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { cleanConstraints } from '../constraints'
 import { SCENARIOS } from '../scenarios'
 import { SCENES, SCENE_IDS, detectPeople } from '../scenes'
 import Crew, { Portrait } from './art/Crew'
-import RouteCard from './art/RouteCard'
+import Journey from './Journey'
+import { currentPosition, reverseGeocode } from '../geo'
+import { useJourney } from '../hooks/useJourney'
 import { findPlace, placeInText } from '../places'
 import { Flag } from 'lucide-react'
 
@@ -106,9 +108,26 @@ export default function Planner({ me, friends = [], draft, setDraft, sceneId, sc
   }, [draft.brief, setDraft])
 
   const fromPlace = findPlace(draft.constraints.location)
+  const fromText = draft.constraints.location.trim()
   const typedTo = (draft.constraints.destination ?? '').trim()
   const guessedTo = typedTo ? null : placeInText(draft.brief, fromPlace)
-  const toPlace = typedTo ? findPlace(typedTo) : guessedTo
+  const toText = typedTo || guessedTo?.name || ''
+  const journey = useJourney({ fromText, toText, origin: draft.origin, modes: draft.travel, enabled: fromText.length >= 2 || Boolean(draft.origin) })
+  const [locating, setLocating] = useState(false)
+  const [locError, setLocError] = useState(null)
+  const useMyLocation = async () => {
+    setLocating(true)
+    setLocError(null)
+    try {
+      const pos = await currentPosition()
+      const label = await reverseGeocode(pos.lat, pos.lon)
+      setDraft((d) => ({ ...d, origin: { ...pos, label }, constraints: { ...d.constraints, location: label } }))
+    } catch (e) {
+      setLocError(e.message)
+    } finally {
+      setLocating(false)
+    }
+  }
 
   const chosen = friends.filter((f) => draft.friendIds.includes(f.id))
   const minPeople = 1 + chosen.length
@@ -120,7 +139,8 @@ export default function Planner({ me, friends = [], draft, setDraft, sceneId, sc
     })
   const toggleTravel = (id) =>
     setDraft((d) => ({ ...d, travel: id === 'any' ? [] : d.travel.includes(id) ? d.travel.filter((x) => x !== id) : [...d.travel, id] }))
-  const setField = (k) => (e) => setDraft((d) => ({ ...d, constraints: { ...d.constraints, [k]: e.target.value } }))
+  // Typing a new starting point drops the exact location from the device.
+  const setField = (k) => (e) => setDraft((d) => ({ ...d, ...(k === 'location' ? { origin: null } : {}), constraints: { ...d.constraints, [k]: e.target.value } }))
   const ready = draft.brief.trim().length >= 10
 
   const send = (e) => {
@@ -128,6 +148,13 @@ export default function Planner({ me, friends = [], draft, setDraft, sceneId, sc
     if (!ready) return
     const constraints = cleanConstraints({ ...draft.constraints, headcount: String(people) }) ?? {}
     if (draft.travel.length) constraints.travel = draft.travel
+    // Pin both ends so everyone in the plan sees exactly this route.
+    if (journey.status === 'ready') {
+      const pinOf = (p) => ({ lat: Number(p.lat.toFixed(5)), lon: Number(p.lon.toFixed(5)), label: String(p.label ?? p.name).slice(0, 200) })
+      constraints.origin = pinOf(journey.from)
+      constraints.dest = pinOf(journey.to)
+      if (!constraints.destination && guessedTo) constraints.destination = guessedTo.name
+    } else if (draft.origin) constraints.origin = draft.origin
     onSend({ brief: draft.brief.trim(), constraints, scene: sceneId, member_ids: draft.friendIds })
   }
 
@@ -227,9 +254,12 @@ export default function Planner({ me, friends = [], draft, setDraft, sceneId, sc
             <CalendarDays size={15} />
             <input id="c-dates" value={draft.constraints.dates} onChange={setField('dates')} placeholder="When" />
           </label>
-          <label className="detail" htmlFor="c-location">
+          <label className={`detail detail-locate ${draft.origin ? 'is-pinned' : ''}`} htmlFor="c-location">
             <MapPin size={15} />
             <input id="c-location" value={draft.constraints.location} onChange={setField('location')} placeholder="Starting from" />
+            <button type="button" className="locate-btn" onClick={useMyLocation} disabled={locating} aria-label="Use my current location" title="Use my current location">
+              {locating ? <LoaderCircle size={15} className="spin" /> : <LocateFixed size={15} />}
+            </button>
           </label>
           <label className="detail" htmlFor="c-destination">
             <Flag size={15} />
@@ -237,16 +267,15 @@ export default function Planner({ me, friends = [], draft, setDraft, sceneId, sc
           </label>
         </div>
 
+        {locError && <p className="hint small loc-error" role="status">{locError}</p>}
         <AnimatePresence initial={false}>
-          {draft.constraints.location.trim().length >= 2 && (
+          {(fromText.length >= 2 || draft.origin) && (
             <motion.div className="route-wrap" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
-              <RouteCard
-                from={draft.constraints.location.trim()}
-                to={(draft.constraints.destination ?? '').trim() || guessedTo?.name || null}
-                fromPlace={fromPlace}
-                toPlace={toPlace}
-                mode={draft.travel.includes('flight') && draft.travel.length === 1 ? 'flight' : (draft.travel[0] ?? 'own_car')}
-              />
+              {toText ? (
+                <Journey journey={journey} fromText={fromText || 'your location'} toText={toText} />
+              ) : (
+                <p className="journey-prompt"><Flag size={14} /> Add where you're going and the route draws itself, with every change of vehicle on the way.</p>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -279,7 +308,8 @@ export default function Planner({ me, friends = [], draft, setDraft, sceneId, sc
                 onClick={() =>
                   setDraft({
                     brief: s.brief,
-                    constraints: { budget: s.constraints.budget, dates: s.constraints.dates, location: s.constraints.location },
+                    constraints: { budget: s.constraints.budget, dates: s.constraints.dates, location: s.constraints.location, destination: s.constraints.destination ?? '' },
+                    origin: null,
                     people: Math.max(Number(s.constraints.headcount), 1 + draft.friendIds.length),
                     friendIds: draft.friendIds,
                     travel: s.travel ?? [],

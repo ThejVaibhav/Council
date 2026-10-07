@@ -70,19 +70,24 @@ Checks, from `backend/`:
 - Both return `429` when `MAX_CONCURRENT_DEBATES` debates are already running, and `422` for an invalid brief or constraints (`budget`, `headcount`, `dates`, `location`, all optional).
 - Gemini rate limits and server errors are retried with backoff inside each agent's time budget; a failed call does not stop the debate.
 - `GET /sessions/{id}` returns the saved session, transcript, and final plan.
-- Accounts: `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, `GET /me`, `PUT /me` (display name and avatar).
+- Accounts: `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, `GET /me`, `PUT /me` (display name, avatar and email; an empty email clears it).
 - Friends: `GET /users/search?q=`, `POST /friends/requests`, `GET /friends`, `POST /friends/{id}/accept`, `DELETE /friends/{id}`.
-- Shared plans (bearer token required): `POST /plans`, `GET /plans`, `GET /plans/{id}`, `POST /plans/{id}/members`, `POST /plans/join`, `GET /plans/{id}/stream`.
+- Shared plans (bearer token required): `POST /plans`, `GET /plans`, `GET /plans/{id}`, `POST /plans/{id}/members`, `POST /plans/join`, `GET /plans/{id}/stream`, `DELETE /plans/{id}` (the owner deletes it for everyone, anyone else leaves), `POST /plans/{id}/share` (a public recap code).
+- Recaps (no sign-in): `GET /recap/{code}` returns the brief, members' names and characters, the debate events and the decision. Recap codes are separate from invite codes, so a shared recap never lets anyone join the plan.
+- Plan constraints also accept `origin` and `dest` as `{lat, lon, label}`, so everyone in a plan sees the same route.
 
 ## How the app looks and feels
 
-- **Accounts.** Create an account (username and password, email optional so friends can find you), then design your character: body, eight skin tones, ten hairstyles and colours, eyes, brows, facial hair, glasses, headwear, top, bottoms, shoes, and a pet (dog, cat or rabbit, with breeds and a name). It is stored on the server, so it is the same on every device.
+- **Accounts.** Create an account (username and password, email optional so friends can find you; change it later under Account in the editor), then design your character: body, eight skin tones, ten hairstyles and colours, eyes, brows, facial hair, glasses, headwear, top, bottoms, shoes, and a pet (dog, cat or rabbit, with breeds and a name). It is stored on the server, so it is the same on every device.
+- **Characters.** Drawn in a retro textured style (flat colour, halftone shadows, paper grain) by `frontend/src/components/art/figure.js`. In any scene but Open road, everyone changes into that scene's outfit: a slip dress or blazer for a date, palm print and slides at the beach, fleece and beanies under the stars, puffers in the snow, and so on, with colours varied across a group.
 - **Friends.** Search by username, name or exact email, send and accept requests, or share an invite link (copy it or open a prepared email).
 - **Plan together.** Pick friends in the planner; their real characters join your crew. Everyone in the plan sees the same debate and decision live, from their own device. Anyone else can join with the plan's invite link.
 - **Your crew.** "Just me" shows you waving, "Two of us" a couple holding hands, three or more a walking group with luggage (up to five drawn, plus "+N"). Your pet walks with you.
 - **Scenes that follow the brief.** `frontend/src/scenes.js` matches the brief and switches the whole backdrop: Date night, Beach day, Into the hills, Under the stars, Snow trip, Celebration, Night out, Food run, Road trip or Open road. The people count is picked up from the brief too. You can pin a scene by hand.
 - **Getting there.** Choose the travel modes the group is open to (own car, self-drive, bike, cab, state bus, private bus, train, flight, local only) or let the council decide. The agents are told to plan only with those.
-- **Route map.** Enter a starting point (and optionally a destination) to see an animated route with your vehicle moving along it, with rough distance and time for well-known places. The verdict ticket shows the route to wherever the Moderator decided.
+- **Journey and map.** Type a starting point or tap the locate button to use your current location, then a destination. The trip is split into legs from the travel modes you picked (ride to the meetup then drive, cab to the airport then fly, train with a cab at each end) and drawn two ways: an animated zig-zag journey where the vehicle swaps at every change, and a real OpenStreetMap map with the route. Places come from OpenStreetMap Nominatim, roads from OSRM, tiles from CARTO; all free, and the app falls back to a built-in list of places when they are unreachable. "Open directions" hands the route to Google Maps.
+- **Share the decision.** From the verdict, share a story-style recap (the ask, everyone's pitch, the clash, the call, who won what), a one-line quick take, or an image card in story (9:16) or post (4:5) size, to WhatsApp, Instagram, Messages, Mail, Telegram, X, the device's share menu, or the clipboard. The message links to a read-only recap page anyone can open without an account.
+- **Plans.** Your plans and the ones you were added to. Owners can delete a plan for everyone; members can leave.
 - **Debate and verdict.** A group chat over the scene, then a boarding-pass ticket with the total, a budget bar, the route and stamped trade-offs.
 - Everything is drawn in SVG and CSS, and all motion stops when the device asks for reduced motion.
 

@@ -125,3 +125,75 @@ def test_only_friends_can_be_added(stub_models):
         assert len(plan["members"]) == 1
         assert c.post(f"/plans/{plan['id']}/members", headers=ha, json={"user_id": stranger["id"]}).status_code == 403
         events(c, plan["id"], ha)  # let the debate finish before the client closes
+
+
+def test_recap_link_is_public_and_read_only(stub_models):
+    with TestClient(app) as c:
+        ha, a = signup(c, "asha")
+        hb, _ = signup(c, "kabir")
+        r = c.post("/plans", headers=ha, json={
+            "brief": BRIEF, "scene": "beach",
+            "constraints": {"headcount": 4, "location": "Bengaluru", "destination": "Gokarna",
+                            "origin": {"lat": 12.97, "lon": 77.59, "label": "Indiranagar, Bengaluru"},
+                            "dest": {"lat": 14.55, "lon": 74.32}},
+        })
+        assert r.status_code == 200, r.text
+        plan = r.json()
+        assert plan["constraints"]["origin"]["label"] == "Indiranagar, Bengaluru"
+        owner_view = events(c, plan["id"], ha)
+
+        # only members can mint a share link, and it is stable
+        assert c.post(f"/plans/{plan['id']}/share", headers=hb).status_code == 404
+        code = c.post(f"/plans/{plan['id']}/share", headers=ha).json()["code"]
+        assert code != plan["invite_code"]
+        assert c.post(f"/plans/{plan['id']}/share", headers=ha).json()["code"] == code
+
+        # anyone can read the recap without signing in; it carries the debate, not private details
+        rec = c.get(f"/recap/{code}")
+        assert rec.status_code == 200, rec.text
+        body = rec.json()
+        assert body["title"] == "Gokarna" and body["scene"] == "beach"
+        assert [e["type"] for e in body["events"]] == [e["type"] for e in owner_view if e["type"] != "status"]
+        assert body["members"] == [{"display_name": "Asha", "avatar": a["avatar"], "role": "owner"}]
+        assert "invite_code" not in body and "id" not in body
+        # the recap code does not let anyone join the plan
+        assert c.post("/plans/join", headers=hb, json={"code": code}).status_code == 404
+        assert c.get("/recap/not-a-code").status_code == 404
+
+
+def test_coordinates_are_validated():
+    with TestClient(app) as c:
+        h, _ = signup(c, "zoya")
+        r = c.post("/plans", headers=h, json={"brief": BRIEF, "constraints": {"origin": {"lat": 120, "lon": 77}}})
+        assert r.status_code == 422
+
+
+def test_members_leave_and_owners_delete(stub_models):
+    with TestClient(app) as c:
+        ha, a = signup(c, "asha")
+        hb, b = signup(c, "ravi")
+        c.post("/friends/requests", headers=ha, json={"username": b["username"]})
+        c.post(f"/friends/{a['id']}/accept", headers=hb)
+        plan = c.post("/plans", headers=ha, json={"brief": BRIEF, "member_ids": [b["id"]]}).json()
+        events(c, plan["id"], ha)  # let the debate finish
+        code = c.post(f"/plans/{plan['id']}/share", headers=ha).json()["code"]
+
+        assert c.delete(f"/plans/{plan['id']}", headers=hb).json() == {"left": True}
+        assert c.get(f"/plans/{plan['id']}", headers=hb).status_code == 404
+        assert c.get(f"/plans/{plan['id']}", headers=ha).status_code == 200
+
+        assert c.delete(f"/plans/{plan['id']}", headers=ha).json() == {"deleted": True}
+        assert c.get(f"/plans/{plan['id']}", headers=ha).status_code == 404
+        assert c.get(f"/recap/{code}").status_code == 404
+
+
+def test_email_can_be_changed_and_cleared():
+    with TestClient(app) as c:
+        h, _ = signup(c, "kabir")
+        h2, _ = signup(c, "zoya", f"zoya{uuid.uuid4().hex[:6]}@example.com")
+        taken = c.get("/me", headers=h2).json()["email"]
+        new = f"kabir{uuid.uuid4().hex[:6]}@example.com"
+        assert c.put("/me", headers=h, json={"email": new.upper()}).json()["email"] == new
+        assert c.put("/me", headers=h, json={"email": taken}).status_code == 409
+        assert c.put("/me", headers=h, json={"email": "not-an-email"}).status_code == 422
+        assert c.put("/me", headers=h, json={"email": ""}).json()["email"] is None

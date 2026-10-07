@@ -31,7 +31,7 @@ def _brief_with_constraints(brief: str, constraints: dict | None) -> str:
         return brief
     lines = []
     for k, v in constraints.items():
-        if v in (None, "", []):
+        if v in (None, "", []) or k in ("origin", "dest"):
             continue
         if k == "travel":
             modes = describe(v)

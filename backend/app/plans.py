@@ -23,6 +23,13 @@ _tasks: set[asyncio.Task] = set()  # keep running debates referenced until they 
 TERMINAL = {"done", "error"}
 
 
+class Point(BaseModel):
+    """A place picked on a map or from the device's location, so everyone in the plan sees the same route."""
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+    label: str | None = Field(default=None, max_length=200)
+
+
 class Constraints(BaseModel):
     budget: str | int | float | None = None
     headcount: int | None = Field(default=None, ge=1, le=100)
@@ -30,6 +37,8 @@ class Constraints(BaseModel):
     location: str | None = Field(default=None, max_length=200)
     destination: str | None = Field(default=None, max_length=200)
     travel: list[Literal[tuple(TRAVEL_MODES)]] | None = Field(default=None, max_length=len(TRAVEL_MODES))  # type: ignore[valid-type]
+    origin: Point | None = None
+    dest: Point | None = None
 
 
 class PlanIn(BaseModel):
@@ -165,6 +174,60 @@ async def join(body: JoinIn, user=Depends(current_user)):
         raise HTTPException(404, "That invite link is not valid.")
     await pool.execute("INSERT INTO plan_members (session_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", session_id, user["id"])
     return {"id": str(session_id)}
+
+
+@router.delete("/{session_id}")
+async def delete_or_leave(session_id: UUID, user=Depends(current_user)):
+    """The owner deletes the plan for everyone; anyone else just leaves it."""
+    row = await _require_member(session_id, user["id"])
+    pool = db.get_pool()
+    if row["owner_id"] == user["id"]:
+        if row["status"] in ("pending", "in_progress"):
+            raise HTTPException(409, "Wait for the debate to finish before deleting this plan.")
+        await pool.execute("DELETE FROM sessions WHERE id = $1", session_id)
+        return {"deleted": True}
+    await pool.execute("DELETE FROM plan_members WHERE session_id = $1 AND user_id = $2", session_id, user["id"])
+    return {"left": True}
+
+
+@router.post("/{session_id}/share")
+async def share(session_id: UUID, user=Depends(current_user)):
+    """A public, read-only recap link for this plan. Created once, then reused."""
+    row = await _require_member(session_id, user["id"])
+    code = row["share_code"]
+    if not code:
+        code = new_invite_code()
+        await db.get_pool().execute("UPDATE sessions SET share_code = $2 WHERE id = $1 AND share_code IS NULL", session_id, code)
+        code = await db.get_pool().fetchval("SELECT share_code FROM sessions WHERE id = $1", session_id)
+    return {"code": code}
+
+
+# Events a reader of the recap needs; nothing else from the session is exposed.
+RECAP_EVENTS = ("round_start", "turn", "agent_error", "moderator_start", "final_plan", "done", "error")
+recap_router = APIRouter(prefix="/recap")
+
+
+@recap_router.get("/{code}")
+async def recap(code: str):
+    pool = db.get_pool()
+    row = await pool.fetchrow("SELECT * FROM sessions WHERE share_code = $1", code.strip())
+    if not row:
+        raise HTTPException(404, "This recap link is not valid.")
+    members = [{"display_name": m["display_name"], "avatar": m["avatar"], "role": m["role"]} for m in await _members(row["id"])]
+    events = [r["payload"] for r in await pool.fetch(
+        "SELECT payload FROM session_events WHERE session_id = $1 AND type = ANY($2::text[]) ORDER BY seq", row["id"], list(RECAP_EVENTS)
+    )]
+    title = await pool.fetchval("SELECT title FROM final_plans WHERE session_id = $1", row["id"])
+    return {
+        "brief": row["brief_text"],
+        "constraints": row["constraints"],
+        "scene": row["scene"],
+        "status": row["status"],
+        "created_at": row["created_at"].isoformat(),
+        "title": title,
+        "members": members,
+        "events": events,
+    }
 
 
 def _sse(event: dict) -> str:

@@ -48,7 +48,9 @@ requester_id, addressee_id, status pending or accepted, created_at. One row per 
 
 ## sessions, new columns
 
-owner_id, the user who created the plan. invite_code, unique, for invite links. scene, the backdrop the owner saw, so every member sees the same one.
+owner_id, the user who created the plan. invite_code, unique, for invite links. scene, the backdrop the owner saw, so every member sees the same one. share_code (migration 003), unique and created on first share, for the public read-only recap; kept apart from invite_code so sharing a recap never lets anyone join.
+
+constraints may now include origin and dest, each {lat, lon, label}, pinned when the plan starts so every member sees the same route. They are not passed to the agents; the place names in location and destination are.
 
 ## plan_members
 

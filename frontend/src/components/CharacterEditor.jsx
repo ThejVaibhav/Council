@@ -2,8 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { ArrowRight, Shuffle } from 'lucide-react'
 import { useState } from 'react'
 import { BOTTOM_COLORS, HAIR_COLORS, LABELS, OPTIONS, PET_BREEDS, SHOE_COLORS, SKIN, TOP_COLORS, presetFor, shuffleAvatar, withDefaults } from '../avatarOptions'
-import { SCENES } from '../scenes'
-import Crew, { Person, Pet, Portrait } from './art/Crew'
+import Crew, { FullBody, Pet, Portrait } from './art/Crew'
 
 const TABS = [
   { id: 'body', label: 'Body' },
@@ -12,15 +11,8 @@ const TABS = [
   { id: 'outfit', label: 'Outfit' },
   { id: 'extras', label: 'Extras' },
   { id: 'pet', label: 'Pet' },
+  { id: 'account', label: 'Account' },
 ]
-
-function FullBody({ avatar, size = 84 }) {
-  return (
-    <svg viewBox="12 0 76 200" width={size * 0.38} height={size} aria-hidden="true">
-      <Person avatar={avatar} scene={SCENES.everyday} own pose="stand" />
-    </svg>
-  )
-}
 
 function Tiles({ label, options, value, render, onPick, wide }) {
   return (
@@ -66,6 +58,7 @@ function PetArt({ pet, size = 64 }) {
 export default function CharacterEditor({ user, mode = 'create', onSave, onCancel, busy, error }) {
   const [a, setA] = useState(() => withDefaults(user?.avatar))
   const [name, setName] = useState(user?.display_name ?? '')
+  const [email, setEmail] = useState(user?.email ?? '')
   const [tab, setTab] = useState('body')
   const set = (patch) => setA((x) => ({ ...x, ...patch }))
   const setPet = (patch) => setA((x) => ({ ...x, pet: { ...x.pet, ...patch } }))
@@ -137,6 +130,15 @@ export default function CharacterEditor({ user, mode = 'create', onSave, onCance
                     <Tiles label="Headwear" options={OPTIONS.headwear} value={a.headwear} render={(id) => <Portrait avatar={preview({ headwear: id })} size={52} />} onPick={(headwear) => set({ headwear })} />
                   </>
                 )}
+                {tab === 'account' && (
+                  <div className="ed-account">
+                    <span className="field-label">Username</span>
+                    <p className="ed-username">@{user?.username}</p>
+                    <label className="field-label" htmlFor="acc-email">Email <span className="optional">optional, lets friends find you</span></label>
+                    <input id="acc-email" className="text-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" />
+                    <p className="hint small">Friends can find you by your username or this email. Leave it empty to be found by username only.</p>
+                  </div>
+                )}
                 {tab === 'pet' && (
                   <>
                     <Tiles
@@ -164,7 +166,7 @@ export default function CharacterEditor({ user, mode = 'create', onSave, onCance
             {onCancel && (
               <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button>
             )}
-            <button type="button" className="btn btn-accent" disabled={busy || !name.trim()} onClick={() => onSave({ display_name: name.trim(), avatar: a })}>
+            <button type="button" className="btn btn-accent" disabled={busy || !name.trim()} onClick={() => onSave({ display_name: name.trim(), avatar: a, ...(email.trim() !== (user?.email ?? '') ? { email: email.trim() } : {}) })}>
               {mode === 'create' ? 'Start planning' : 'Save'} <ArrowRight size={16} />
             </button>
           </div>

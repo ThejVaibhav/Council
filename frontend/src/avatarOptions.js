@@ -1,10 +1,10 @@
 // Character options. Must stay in step with backend/app/avatar.py.
 
-export const SKIN = ['#fde0c8', '#f6d3b3', '#e8b48a', '#d9a06f', '#c98b5e', '#a8714a', '#8a5a3a', '#5e3b24']
-export const HAIR_COLORS = ['#1f1814', '#3b2619', '#5a3825', '#8a5530', '#b5713a', '#d9b26f', '#e8d3a8', '#9a9a9a', '#c2416b', '#3f5fbf']
-export const TOP_COLORS = ['#e4572e', '#2f6f73', '#e9b44c', '#5b6bbf', '#a85c7a', '#3a7d44', '#1f2a44', '#f2f0ea', '#d64545', '#7c4dff', '#ff8fab', '#5bc0eb']
-export const BOTTOM_COLORS = ['#2f3a4a', '#1c1c22', '#6b5a4a', '#3d4f3d', '#4f6d8f', '#c9b79c', '#8a3b3b', '#e7e1d6']
-export const SHOE_COLORS = ['#2b2320', '#f4f1ea', '#8a5a3a', '#d64545', '#3a5ba0', '#2f6f4f']
+export const SKIN = ['#f3d2b3', '#e9bf98', '#d9a57a', '#c68a5c', '#b0764c', '#9a643f', '#7d4f33', '#5c3a26']
+export const HAIR_COLORS = ['#1c1311', '#3a2519', '#5a3825', '#7f4f2e', '#a8683a', '#cfa45f', '#e3cf9f', '#9a948c', '#a8455e', '#3e5a8a']
+export const TOP_COLORS = ['#a8553a', '#3e6b5a', '#d99a2b', '#4a5f8a', '#9b5a72', '#6f8a6b', '#2a2d38', '#efe3c8', '#c2443a', '#7a6aa8', '#e39aa0', '#5aa0b4']
+export const BOTTOM_COLORS = ['#3a4256', '#232227', '#7a6450', '#5f6646', '#8fa68a', '#cdb994', '#7d2a35', '#ece0c8']
+export const SHOE_COLORS = ['#2a2420', '#f3eee4', '#8a5a3a', '#c2443a', '#4a5f8a', '#3e6b5a']
 
 export const OPTIONS = {
   body: [
@@ -37,8 +37,8 @@ export const PET_BREEDS = {
 }
 
 export const DEFAULT_AVATAR = {
-  body: 'neutral', skin: 2, hair: 'short', hairColor: 1, eyes: 'dots', brows: 'soft', facialHair: 'none', glasses: 'none',
-  headwear: 'none', top: 'tee', topColor: 0, bottom: 'pants', bottomColor: 0, shoeColor: 0,
+  body: 'neutral', skin: 4, hair: 'short', hairColor: 0, eyes: 'dots', brows: 'soft', facialHair: 'none', glasses: 'none',
+  headwear: 'none', top: 'tee', topColor: 7, bottom: 'pants', bottomColor: 0, shoeColor: 1,
   pet: { kind: 'none', breed: '', name: '' },
 }
 
@@ -48,8 +48,8 @@ export function withDefaults(a) {
 
 // A sensible starting look for a body choice, used when someone picks a body in the editor for the first time.
 export function presetFor(body, base = DEFAULT_AVATAR) {
-  if (body === 'female') return { ...base, body, hair: 'long', facialHair: 'none', top: 'tee', bottom: 'pants' }
-  if (body === 'male') return { ...base, body, hair: 'short', top: 'tee', bottom: 'pants' }
+  if (body === 'female') return { ...base, body, hair: 'curly', facialHair: 'none', glasses: 'round', top: 'tee', bottom: 'pants', bottomColor: 4 }
+  if (body === 'male') return { ...base, body, hair: 'short', facialHair: 'beard', top: 'tee', bottom: 'pants', bottomColor: 2 }
   return { ...base, body, hair: 'bob', facialHair: 'none' }
 }
 
@@ -80,17 +80,17 @@ export function shuffleAvatar(current) {
 
 // Stand-ins who fill a group beyond the friends actually in the plan.
 export const COMPANIONS = [
-  withDefaults({ body: 'female', skin: 4, hair: 'bun', hairColor: 0, eyes: 'happy', top: 'tee' }),
-  withDefaults({ body: 'male', skin: 5, hair: 'curly', hairColor: 0, top: 'hoodie' }),
-  withDefaults({ body: 'female', skin: 1, hair: 'ponytail', hairColor: 4, eyes: 'lashes' }),
-  withDefaults({ body: 'male', skin: 7, hair: 'short', hairColor: 0, facialHair: 'beard', top: 'shirt' }),
-  withDefaults({ body: 'neutral', skin: 0, hair: 'bob', hairColor: 5 }),
+  withDefaults({ body: 'female', skin: 3, hair: 'curly', hairColor: 0, eyes: 'happy', glasses: 'round', top: 'tee', topColor: 7, bottomColor: 4 }),
+  withDefaults({ body: 'male', skin: 5, hair: 'short', hairColor: 0, facialHair: 'beard', top: 'shirt', topColor: 1, bottomColor: 5 }),
+  withDefaults({ body: 'female', skin: 1, hair: 'ponytail', hairColor: 3, eyes: 'lashes', top: 'hoodie', topColor: 9 }),
+  withDefaults({ body: 'male', skin: 7, hair: 'buzz', hairColor: 0, facialHair: 'stubble', top: 'jacket', topColor: 3, bottomColor: 2 }),
+  withDefaults({ body: 'female', skin: 4, hair: 'bob', hairColor: 1, top: 'shirt', topColor: 5 }),
 ]
 
 export function partnerFor(a) {
-  return a.body === 'male'
-    ? withDefaults({ body: 'female', skin: 3, hair: 'long', hairColor: 0, eyes: 'lashes', top: 'tee' })
-    : withDefaults({ body: 'male', skin: 4, hair: 'short', hairColor: 0, facialHair: 'beard', top: 'shirt' })
+  return a.body === 'female'
+    ? withDefaults({ body: 'male', skin: 4, hair: 'short', hairColor: 0, facialHair: 'beard', top: 'shirt', topColor: 1, bottomColor: 5 })
+    : withDefaults({ body: 'female', skin: 3, hair: 'curly', hairColor: 0, eyes: 'lashes', glasses: 'round', top: 'tee', topColor: 7, bottomColor: 4 })
 }
 
 export const TRAVEL = [

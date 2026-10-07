@@ -75,6 +75,9 @@ function httpApi() {
     getPlan: (id) => call('GET', `/plans/${id}`),
     addMember: (id, userId) => call('POST', `/plans/${id}/members`, { user_id: userId }),
     join: (code) => call('POST', '/plans/join', { code }),
+    sharePlan: (id) => call('POST', `/plans/${id}/share`).then((r) => r.code),
+    deletePlan: (id) => call('DELETE', `/plans/${id}`),
+    recap: (code) => call('GET', `/recap/${encodeURIComponent(code)}`),
     streamPlan: (id, onEvent, signal) =>
       streamDebate(`${API_BASE}/plans/${id}/stream`, null, onEvent, signal, token ? { Authorization: `Bearer ${token}` } : {}),
   }
@@ -145,7 +148,13 @@ function demoApi() {
     },
     async updateMe(body) {
       need()
-      db.me = { ...db.me, ...(body.display_name ? { display_name: body.display_name } : {}), ...(body.avatar ? { avatar: withDefaults(body.avatar) } : {}) }
+      if (body.email != null && body.email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(body.email.trim())) throw new ApiError(422, 'That email address does not look right.')
+      db.me = {
+        ...db.me,
+        ...(body.display_name ? { display_name: body.display_name } : {}),
+        ...(body.avatar ? { avatar: withDefaults(body.avatar) } : {}),
+        ...(body.email != null ? { email: body.email.trim().toLowerCase() || null } : {}),
+      }
       save()
       return meUser()
     },
@@ -231,6 +240,25 @@ function demoApi() {
     },
     async join() {
       throw new ApiError(404, 'Invite links work in the full app, not this preview.')
+    },
+    async deletePlan(id) {
+      db.plans = db.plans.filter((x) => x.id !== id)
+      save()
+      return { deleted: true }
+    },
+    async sharePlan(id) {
+      const p = db.plans.find((x) => x.id === id)
+      if (!p) throw new ApiError(404, 'Plan not found.')
+      p.share_code = p.share_code ?? Math.random().toString(36).slice(2, 10)
+      save()
+      return p.share_code
+    },
+    async recap(code) {
+      await wait(150)
+      const p = db.plans.find((x) => x.share_code === code)
+      if (!p) throw new ApiError(404, 'This recap link is not valid.')
+      const members = summary(p).members.map((m) => ({ display_name: m.display_name, avatar: m.avatar, role: m.role }))
+      return { brief: p.brief, constraints: p.constraints, scene: p.scene, status: p.status, created_at: p.created_at, title: p.title, members, events: p.events }
     },
     async streamPlan(id, onEvent, signal) {
       const p = db.plans.find((x) => x.id === id)

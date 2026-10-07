@@ -107,11 +107,21 @@ async def me(user=Depends(current_user)):
 class ProfileIn(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=40)
     avatar: Avatar | None = None
+    email: str | None = Field(default=None, max_length=200)  # "" clears it
 
 
 @router.put("/me")
 async def update_me(body: ProfileIn, user=Depends(current_user)):
-    row = await db.get_pool().fetchrow(
+    pool = db.get_pool()
+    if body.email is not None:
+        email = body.email.strip().lower() or None
+        if email and not EMAIL_RE.match(email):
+            raise HTTPException(422, "That email address does not look right.")
+        try:
+            await pool.execute("UPDATE users SET email = $2 WHERE id = $1", user["id"], email)
+        except asyncpg.UniqueViolationError:
+            raise HTTPException(409, "That email address is already used by another account.")
+    row = await pool.fetchrow(
         f"UPDATE users SET display_name = COALESCE($2, display_name), avatar = COALESCE($3, avatar)"
         f" WHERE id = $1 RETURNING {PUBLIC}, email",
         user["id"], body.display_name.strip() if body.display_name else None, body.avatar.model_dump() if body.avatar else None,
