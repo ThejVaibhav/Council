@@ -41,7 +41,10 @@ export function useJourney({ fromText, toText, origin, dest, stops, modes = [], 
         const fromNamed = points[0]
         const toNamed = points[points.length - 1]
         // Each hop uses its own mode when the message named one, otherwise the group's chosen modes.
-        const legs = points.slice(1).flatMap((p, i) => planLegs(points[i], p, ends[i].mode ? [ends[i].mode] : modes).map((l) => ({ ...l, stop: i })))
+        // A hop the message gave a mode for is exactly that ("bus to Kadapa" is one bus leg); only flights
+        // add the ride to and from the airport. Hops without a mode are planned from the chosen modes.
+        const hop = (a, b, mode) => (mode && mode !== 'flight' ? [{ mode, from: a, to: b, note: null }] : planLegs(a, b, mode ? [mode] : modes))
+        const legs = points.slice(1).flatMap((p, i) => hop(points[i], p, ends[i].mode).map((l) => ({ ...l, stop: i })))
         // Quick numbers first so the card can draw straight away; real routes refine them.
         const quick = legs.map((l) => ({ ...l, ...legNumbers(l), coords: null }))
         setState({ status: 'ready', from: fromNamed, to: toNamed, points, legs: quick, summary: journeySummary(quick, quick), routed: false })

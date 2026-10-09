@@ -5,7 +5,7 @@ import { INDEX } from './places'
 
 const MODE_WORDS = [
   ['rental', /\b(self[- ]?drive|rent(?:ed|al)? (?:a )?car|zoomcar|rental)\b/g],
-  ['bus_private', /\b(sleeper|volvo|private bus|ac bus)\b/g],
+  ['bus_private', /\b(sleeper(?: bus)?|volvo(?: bus)?|private bus|a\.?c\.? bus)\b/g],
   ['bus_state', /\b(bus|buses|ksrtc|apsrtc|tsrtc|rtc)\b/g],
   ['bike', /\b(bikes?|motor ?bikes?|motorcycles?|scooters?|scooty|two[- ]wheelers?|bullet|royal enfield)\b/g],
   ['cab', /\b(cabs?|taxis?|uber|ola|rapido)\b/g],
@@ -50,10 +50,11 @@ function placeMentions(text) {
     if (out.some((o) => o.at <= start && start < o.end)) continue // already a known place
     out.push({ name: titleCase(raw), key: raw.toLowerCase(), at: start, end: start + raw.length, known: false, from: m[1].toLowerCase() === 'from' })
   }
-  // "from X" marks the start, wherever it appears.
+  // "from X" marks the start and "via X" a stop on the way, wherever they appear.
   for (const o of out) {
-    const before = lower.slice(Math.max(0, o.at - 6), o.at)
+    const before = lower.slice(Math.max(0, o.at - 12), o.at)
     if (/\bfrom\s+$/.test(before)) o.from = true
+    if (/\b(via|through)\s+$/.test(before)) o.via = true
   }
   return out.sort((a, b) => a.at - b.at)
 }
@@ -104,13 +105,19 @@ export function parseTrip(text) {
   for (const p of places) if (!seen.has(p.key)) seen.set(p.key, { ...p, mentions: [] })
   for (const p of places) seen.get(p.key).mentions.push(p)
   const ordered = [...seen.values()]
+  // "Ooty via Mysuru": the via stop comes before the place named just ahead of it.
+  for (let i = 1; i < ordered.length; i++) {
+    if (ordered[i].mentions[0].via && !ordered[i - 1].from) [ordered[i - 1], ordered[i]] = [ordered[i], ordered[i - 1]]
+  }
   const startPlace = ordered.find((p) => p.from && p.mentions.every((x) => x.from)) ?? null
   const stops = ordered.filter((p) => p !== startPlace)
 
   // A leg takes the mode named in the same clause as its destination ("car to Araku"); the rest go in order.
   const used = new Set()
   const legModes = stops.map((s) => {
-    for (const mention of [...s.mentions].reverse()) {
+    // Only where the place is a destination ("to Vizag in car"), never where it is a start ("from Vizag ... bike").
+    const arrivals = s.mentions.filter((m) => !m.from)
+    for (const mention of arrivals.length ? arrivals : s.mentions) {
       const c = clauseOf(text, mention.at)
       const near = modes.filter((m) => clauseOf(text, m.at) === c && !used.has(m))
       if (near.length) {
