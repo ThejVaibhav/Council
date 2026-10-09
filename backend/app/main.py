@@ -74,7 +74,8 @@ async def health():
     return {
         "status": "ok" if db_ok else "degraded",
         "database": "ok" if db_ok else "unreachable",
-        "gemini_key_configured": bool(settings.gemini_api_key),
+        "llm_provider": settings.llm_provider,
+        "llm_key_configured": bool(settings.groq_api_key if settings.llm_provider == "groq" else settings.gemini_api_key),
     }
 
 

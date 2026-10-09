@@ -1,5 +1,5 @@
 # Render blueprint, free plan: one web service (API + website on the same URL) and a Postgres database.
-# Fill in GEMINI_API_KEY, and optionally GOOGLE_CLIENT_ID for "Continue with Google".
+# Fill in GROQ_API_KEY, and optionally GOOGLE_CLIENT_ID for "Continue with Google".
 # To use Supabase instead, set DATABASE_URL to its connection string and delete the databases block.
 services:
   - type: web
@@ -9,7 +9,7 @@ services:
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     envVars:
-      - key: GEMINI_API_KEY
+      - key: GROQ_API_KEY
         sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false

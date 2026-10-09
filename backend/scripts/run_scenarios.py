@@ -1,6 +1,6 @@
 """Phase 4 check: run the three PRD demo scenarios end to end against the real Gemini API.
 
-Run from backend/ (Postgres up, GEMINI_API_KEY in .env):  python -m scripts.run_scenarios [index]
+Run from backend/ (Postgres up, GROQ_API_KEY in .env):  python -m scripts.run_scenarios [index]
 Prints the transcript as it streams and the time each debate took.
 """
 import asyncio

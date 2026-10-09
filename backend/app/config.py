@@ -11,9 +11,12 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
+    # "groq" (default, generous free tier) or "gemini".
+    llm_provider: str = "groq"
+    groq_api_key: str = ""
     gemini_api_key: str = ""
-    specialist_model: str = "gemini-3.5-flash"
-    moderator_model: str = "gemini-3.7-flash"
+    specialist_model: str = "openai/gpt-oss-20b"
+    moderator_model: str = "openai/gpt-oss-120b"
     agent_timeout_seconds: float = 45.0
     # Each debate makes 7 model calls; cap parallel debates so a public demo stays inside free-tier quota.
     max_concurrent_debates: int = 2

@@ -2,7 +2,7 @@
 
 ## Stack
 
-Frontend, React with Vite, plain CSS or Tailwind, no component library needed for something this small. Backend, FastAPI. Database, Postgres, SQLite is acceptable for local development but the demo deployment should run Postgres since it is one less thing to swap later. Model access, the Google Gemini API directly (free tier, via the google-genai SDK), no agent framework in v1. A hand rolled orchestration loop is both simpler to reason about and a stronger thing to explain in an interview than a framework call nobody can see inside.
+Frontend, React with Vite, plain CSS or Tailwind, no component library needed for something this small. Backend, FastAPI. Database, Postgres, SQLite is acceptable for local development but the demo deployment should run Postgres since it is one less thing to swap later. Model access, Groq's OpenAI-compatible API directly (free tier, generous token limits), with the Google Gemini API kept as a switchable alternative (LLM_PROVIDER=gemini), no agent framework in v1. A hand rolled orchestration loop is both simpler to reason about and a stronger thing to explain in an interview than a framework call nobody can see inside.
 
 ## Why no framework
 
@@ -10,9 +10,9 @@ LangGraph, CrewAI, and similar tools exist for this exact pattern, but for a thr
 
 ## Model choice per agent
 
-The three specialist agents, Budget, Logistics, and Vibe, run on Gemini 3.5 Flash (SPECIALIST_MODEL, default gemini-3.5-flash). Their job in each turn is narrow, propose or react from one fixed perspective, which does not need the most expensive model, and keeping them fast matters since three of them run per round and the user is watching live.
+The three specialist agents, Budget, Logistics, and Vibe, run on GPT-OSS 20B via Groq (SPECIALIST_MODEL, default openai/gpt-oss-20b). Their job in each turn is narrow, propose or react from one fixed perspective, which does not need the most expensive model, and keeping them fast matters since three of them run per round and the user is watching live.
 
-The Moderator agent runs on Gemini 3.7 Flash (MODERATOR_MODEL, default gemini-3.7-flash). Its job is harder, read the full transcript, resolve genuine disagreements between the three specialists, and produce a coherent final plan with an honest trade off log. That step is the one place in the pipeline where reasoning quality visibly shows up in the output, so it gets the stronger model.
+The Moderator agent runs on GPT-OSS 120B via Groq (MODERATOR_MODEL, default openai/gpt-oss-120b). Its job is harder, read the full transcript, resolve genuine disagreements between the three specialists, and produce a coherent final plan with an honest trade off log. That step is the one place in the pipeline where reasoning quality visibly shows up in the output, so it gets the stronger model.
 
 ## Orchestration flow
 

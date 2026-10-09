@@ -126,3 +126,62 @@ def test_client_error_is_not_retried():
     with pytest.raises(LLMError, match="error 400"):
         run(call(client))
     assert len(client.calls) == 1
+
+
+class FakeHTTP:
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.bodies = []
+
+    async def post(self, url, json=None, headers=None):
+        import httpx
+
+        self.bodies.append(json)
+        status, payload = self.responses.pop(0)
+        return httpx.Response(status, json=payload, request=httpx.Request("POST", url))
+
+
+def groq(monkeypatch, responses):
+    import httpx
+
+    from app import llm
+
+    fake = FakeHTTP(responses)
+
+    class Client:
+        def __init__(self, **kw):
+            pass
+
+        async def __aenter__(self):
+            return fake
+
+        async def __aexit__(self, *a):
+            return False
+
+    monkeypatch.setattr(httpx, "AsyncClient", Client)
+    monkeypatch.setattr(llm, "BACKOFF_SECONDS", 0.01)
+    monkeypatch.setattr(llm, "get_settings", lambda: type("S", (), {"llm_provider": "groq", "groq_api_key": "k", "agent_timeout_seconds": 5})())
+    return fake
+
+
+def ok(obj):
+    return 200, {"choices": [{"message": {"content": json.dumps(obj)}}]}
+
+
+def test_groq_returns_validated_object_and_sends_schema(monkeypatch):
+    fake = groq(monkeypatch, [ok(VALID)])
+    out = run(generate_structured(model="openai/gpt-oss-20b", system_prompt="sys", user_message="msg", schema=SpecialistTurn))
+    assert out.option_title == "Homestay in Coorg"
+    assert fake.bodies[0]["response_format"]["type"] == "json_schema"
+
+
+def test_groq_retries_rate_limit(monkeypatch):
+    groq(monkeypatch, [(429, {"error": {"message": "slow down"}}), ok(VALID)])
+    out = run(generate_structured(model="m", system_prompt="s", user_message="u", schema=SpecialistTurn))
+    assert out.stance == "propose"
+
+
+def test_groq_client_error_not_retried(monkeypatch):
+    groq(monkeypatch, [(400, {"error": {"message": "bad model"}})])
+    with pytest.raises(LLMError, match="bad model"):
+        run(generate_structured(model="m", system_prompt="s", user_message="u", schema=SpecialistTurn))
