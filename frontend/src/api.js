@@ -39,11 +39,16 @@ export class ApiError extends Error {
 function httpApi() {
   let token = store.get(TOKEN_KEY)
   const call = async (method, path, body) => {
-    const res = await fetch(`${API_BASE}${path}`, {
-      method,
-      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: body ? JSON.stringify(body) : undefined,
-    })
+    let res
+    try {
+      res = await fetch(`${API_BASE}${path}`, {
+        method,
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+      })
+    } catch {
+      throw new ApiError(0, 'Could not reach the Council server. It may be waking up after a quiet spell, so wait a few seconds and try again.')
+    }
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
       const detail = typeof data.detail === 'string' ? data.detail : data.detail?.[0]?.msg
@@ -60,6 +65,11 @@ function httpApi() {
     hasSession: () => Boolean(token),
     signup: async (body) => signedIn(await call('POST', '/auth/signup', body)),
     login: async (body) => signedIn(await call('POST', '/auth/login', body)),
+    google: async (credential) => {
+      const data = await call('POST', '/auth/google', { credential })
+      return { ...signedIn(data), is_new: data.is_new }
+    },
+    config: () => call('GET', '/config').catch(() => ({})),
     logout: async () => {
       try { await call('POST', '/auth/logout') } catch { /* already signed out */ }
       token = null
@@ -140,6 +150,10 @@ function demoApi() {
       if (db.me && [db.me.username, db.me.email].includes(login.trim().toLowerCase())) return meUser()
       throw new ApiError(401, 'Wrong username, email or password. In this preview, create an account instead.')
     },
+    async google() {
+      throw new ApiError(400, 'Google sign-in works in the full app, not this preview.')
+    },
+    config: async () => ({}),
     async logout() {
       store.set(KEY, null)
       db = load()

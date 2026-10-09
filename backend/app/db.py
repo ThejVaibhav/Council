@@ -14,7 +14,11 @@ async def _init_conn(conn: asyncpg.Connection) -> None:
 async def init_pool() -> asyncpg.Pool:
     global _pool
     if _pool is None:
-        _pool = await asyncpg.create_pool(get_settings().database_url, min_size=1, max_size=10, init=_init_conn)
+        url = get_settings().database_url
+        # Hosted Postgres (Supabase, Neon) needs TLS; its poolers also reject prepared-statement caching.
+        hosted = any(h in url for h in ("supabase", "neon.tech", "pooler"))
+        ssl = "require" if hosted and "sslmode" not in url else None
+        _pool = await asyncpg.create_pool(url, min_size=1, max_size=10, init=_init_conn, ssl=ssl, statement_cache_size=0)
     return _pool
 
 

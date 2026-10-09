@@ -20,6 +20,10 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql://council:council@localhost:55432/council"
     cors_origins: str = "http://localhost:5288"
+    # OAuth client ID from Google Cloud (Credentials > OAuth client ID > Web). Empty hides the Google button.
+    google_client_id: str = ""
+    # Built frontend to serve from the same origin (set in the Docker image); empty in local dev.
+    static_dir: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:

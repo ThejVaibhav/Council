@@ -31,7 +31,7 @@ council/
 ├── docs/                   product, architecture, data model and build plan
 ├── AGENTS.md               the four agents' prompts and the debate protocol
 ├── docker-compose.yml      local Postgres
-├── render.yaml             one-click Render deploy (API, database and site)
+├── render.yaml             one-click Render deploy (one service + database)
 └── .github/workflows/      CI
 ```
 
@@ -122,12 +122,15 @@ Things only you can do, in order:
 2. Locally: `docker compose up -d db`, put the new key in `backend/.env` (copy from `.env.example`), run the migration.
 3. Run `python -m scripts.try_budget`, then `python -m scripts.run_scenarios`. If a model name is rejected, set the correct ID in `SPECIALIST_MODEL` / `MODERATOR_MODEL`.
 4. Open the app (`npm run dev`) and run the three demo scenarios in the browser.
-5. Deploy: on Render, New → Blueprint, pick this repo, paste `GEMINI_API_KEY`; the API, database and site are created and wired together.
+5. Deploy: on Render, New → Blueprint, pick this repo, paste `GEMINI_API_KEY` (and `GOOGLE_CLIENT_ID`, see below). One free web service serves the site and the API on the same URL, next to a free Postgres.
 6. Record the screen capture of a full session for the LinkedIn post.
 
 ## Deploy
 
-Backend and Postgres: `render.yaml` is a Render blueprint (migrations run when the API starts). Set `GEMINI_API_KEY` and `CORS_ORIGINS` (the frontend's URL) in the Render dashboard.
-Frontend: deploy `frontend/` to Vercel (build `npm run build`, output `dist`) with `VITE_API_BASE` set to the backend URL.
+Render (free): `render.yaml` builds the root `Dockerfile`, which compiles the React app and has FastAPI serve it, so the site and API share one URL (no CORS, no cross-service hostnames). Migrations run when the container starts. Free instances sleep after 15 idle minutes; the first request then takes up to a minute, and the sign-in page says so instead of failing.
+
+Supabase instead of Render Postgres: copy the connection string from Supabase (Project Settings → Database, the pooler URI), set it as `DATABASE_URL` on the service, and remove the `databases` block. SSL and pooler settings are applied automatically.
+
+Google sign-in: in Google Cloud Console → APIs & Services → Credentials, create an OAuth client ID of type *Web application*, add your site URL (for example `https://council.onrender.com`, and `http://localhost:5173` for local work) under *Authorized JavaScript origins*, then set `GOOGLE_CLIENT_ID` on the server. The button appears automatically once it is set. Returning users stay signed in for 30 days on the same device, and Google remembers them for one-tap sign-in after that.
 
 Models: specialists use `SPECIALIST_MODEL` (default `gemini-3.5-flash`), the Moderator uses `MODERATOR_MODEL` (default `gemini-3.7-flash`). Both are environment variables so they can be changed without code edits.

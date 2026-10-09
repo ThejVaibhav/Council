@@ -1,41 +1,22 @@
-# Render blueprint: FastAPI backend, managed Postgres and the React site, wired to each other.
-# The only value to fill in by hand is GEMINI_API_KEY.
+# Render blueprint, free plan: one web service (API + website on the same URL) and a Postgres database.
+# Fill in GEMINI_API_KEY, and optionally GOOGLE_CLIENT_ID for "Continue with Google".
+# To use Supabase instead, set DATABASE_URL to its connection string and delete the databases block.
 services:
   - type: web
-    name: council-api
-    runtime: python
+    name: council
+    runtime: docker
     plan: free
-    rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    # Free instances have no pre-deploy step, so migrations run at start (they skip what is already applied).
-    startCommand: python -m scripts.migrate && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.9
       - key: GEMINI_API_KEY
         sync: false
-      - key: CORS_ORIGINS
-        fromService:
-          type: web
-          name: council-web
-          property: host
+      - key: GOOGLE_CLIENT_ID
+        sync: false
       - key: DATABASE_URL
         fromDatabase:
           name: council-db
           property: connectionString
-  - type: web
-    name: council-web
-    runtime: static
-    rootDir: frontend
-    buildCommand: npm ci && npm run build
-    staticPublishPath: dist
-    envVars:
-      - key: VITE_API_BASE
-        fromService:
-          type: web
-          name: council-api
-          property: host
 databases:
   - name: council-db
     plan: free

@@ -5,7 +5,10 @@ from uuid import UUID
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from pathlib import Path
+
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from pydantic import BaseModel, Field
 
@@ -29,6 +32,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def strip_api_prefix(request, call_next):
+    # The frontend calls /api/...; in dev Vite strips it, in production the same service serves both.
+    path = request.scope["path"]
+    if path == "/api" or path.startswith("/api/"):
+        request.scope["path"] = path[4:] or "/"
+    return await call_next(request)
+
+
 app.include_router(users.router)
 app.include_router(plans.router)
 app.include_router(plans.recap_router)
@@ -127,3 +141,14 @@ async def get_session(session_id: UUID):
     turns = await pool.fetch("SELECT * FROM agent_turns WHERE session_id=$1 ORDER BY created_at", session_id)
     plan = await pool.fetchrow("SELECT * FROM final_plans WHERE session_id=$1", session_id)
     return {"session": dict(session), "turns": [dict(t) for t in turns], "final_plan": dict(plan) if plan else None}
+
+
+# Production: serve the built website from the same origin, so there is one URL and no CORS to configure.
+_static = get_settings().static_dir
+if _static and Path(_static, "index.html").exists():
+    app.mount("/assets", StaticFiles(directory=Path(_static, "assets")), name="assets")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    async def spa(path: str):
+        file = Path(_static, path)
+        return FileResponse(file if path and file.is_file() else Path(_static, "index.html"))

@@ -1,13 +1,18 @@
 """Accounts, profiles and friends."""
 import re
+import secrets
+import time
+from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 import asyncpg
+import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from app import db
+from app.config import get_settings
 from app.avatar import PET_BREEDS, Avatar
 from app.security import hash_password, new_token, verify_password
 
@@ -82,15 +87,89 @@ async def signup(body: SignupIn):
     return {"token": await _issue(row["id"]), "user": _me(row)}
 
 
+# Slow down password guessing: at most 8 failed attempts per login name every 10 minutes.
+_failures: dict[str, deque] = defaultdict(deque)
+MAX_FAILURES, WINDOW = 8, 600
+
+
+def _too_many(key: str) -> bool:
+    q = _failures[key]
+    while q and q[0] < time.monotonic() - WINDOW:
+        q.popleft()
+    return len(q) >= MAX_FAILURES
+
+
 @router.post("/auth/login")
 async def login(body: LoginIn):
-    key = body.login.strip().lower()
+    key = body.login.strip().lower().lstrip("@")
+    if _too_many(key):
+        raise HTTPException(429, "Too many attempts. Wait a few minutes and try again.")
     row = await db.get_pool().fetchrow(
         f"SELECT {PUBLIC}, email, password_hash FROM users WHERE username = $1 OR email = $1", key
     )
+    if row and row["password_hash"] is None:
+        raise HTTPException(401, "This account uses Google sign-in. Use Continue with Google.")
     if not row or not verify_password(body.password, row["password_hash"]):
+        _failures[key].append(time.monotonic())
         raise HTTPException(401, "Wrong username, email or password.")
+    _failures.pop(key, None)
     return {"token": await _issue(row["id"]), "user": _me(row)}
+
+
+@router.get("/config")
+async def public_config():
+    """What the sign-in page needs to know: whether Google sign-in is on, and its client ID."""
+    return {"google_client_id": get_settings().google_client_id or None}
+
+
+class GoogleIn(BaseModel):
+    credential: str = Field(min_length=20, max_length=4096)
+
+
+async def verify_google(credential: str) -> dict:
+    """Checks a Google ID token with Google and returns its claims."""
+    client_id = get_settings().google_client_id
+    if not client_id:
+        raise HTTPException(503, "Google sign-in is not set up on this server.")
+    async with httpx.AsyncClient(timeout=8) as client:
+        r = await client.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": credential})
+    claims = r.json() if r.status_code == 200 else {}
+    if claims.get("aud") != client_id or claims.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):
+        raise HTTPException(401, "Google sign-in could not be verified. Try again.")
+    if str(claims.get("email_verified")).lower() != "true":
+        raise HTTPException(401, "Your Google email is not verified.")
+    return claims
+
+
+async def _free_username(base: str) -> str:
+    base = re.sub(r"[^a-z0-9_.]", "", base.lower())[:16] or "traveller"
+    base = base if len(base) >= 3 else f"{base}_go"
+    pool = db.get_pool()
+    for i in range(50):
+        name = base if i == 0 else f"{base[:16]}{secrets.randbelow(9000) + 1000}"
+        if not await pool.fetchval("SELECT 1 FROM users WHERE username = $1", name):
+            return name
+    return f"user{secrets.token_hex(4)}"
+
+
+@router.post("/auth/google")
+async def google_sign_in(body: GoogleIn):
+    """Signs in with Google, creating the account the first time and linking it to an existing email."""
+    claims = await verify_google(body.credential)
+    sub, email = claims["sub"], claims["email"].strip().lower()
+    pool = db.get_pool()
+    row = await pool.fetchrow(f"SELECT {PUBLIC}, email FROM users WHERE google_sub = $1", sub)
+    is_new = False
+    if not row:
+        row = await pool.fetchrow(f"UPDATE users SET google_sub = $2 WHERE email = $1 AND google_sub IS NULL RETURNING {PUBLIC}, email", email, sub)
+    if not row:
+        name = (claims.get("given_name") or claims.get("name") or email.split("@")[0])[:40]
+        row = await pool.fetchrow(
+            f"INSERT INTO users (username, email, display_name, google_sub, avatar) VALUES ($1, $2, $3, $4, $5) RETURNING {PUBLIC}, email",
+            await _free_username(email.split("@")[0]), email, name, sub, Avatar().model_dump(),
+        )
+        is_new = True
+    return {"token": await _issue(row["id"]), "user": _me(row), "is_new": is_new}
 
 
 @router.post("/auth/logout")

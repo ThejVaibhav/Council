@@ -115,7 +115,7 @@ export default function App() {
     setAuthError(null)
     try {
       const u = await fn(body)
-      await afterAuth(u, fn === api.signup)
+      await afterAuth(u, fn === api.signup || Boolean(u.is_new))
     } catch (e) {
       setAuthError(e.message)
     } finally {
@@ -220,7 +220,7 @@ export default function App() {
               }}
             />
           )}
-          {page === 'auth' && <Auth key="auth" onSignup={auth(api.signup)} onLogin={auth(api.login)} busy={authBusy} error={authError} demo={DEMO} joining={Boolean(link.join)} />}
+          {page === 'auth' && <Auth key="auth" onSignup={auth(api.signup)} onLogin={auth(api.login)} onGoogle={auth(api.google)} busy={authBusy} error={authError} demo={DEMO} joining={Boolean(link.join)} />}
           {(page === 'create' || page === 'editor') && (
             <CharacterEditor key={page} user={user} mode={page === 'create' ? 'create' : 'edit'} onSave={saveCharacter} onCancel={page === 'editor' ? () => setView(debate.status !== 'idle' ? 'debate' : 'plan') : null} busy={authBusy} error={authError} />
           )}

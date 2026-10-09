@@ -410,6 +410,16 @@ button:disabled { cursor: not-allowed; }
 .at-input { display: flex; align-items: center; border: 1px solid var(--line); background: var(--field); border-radius: 14px; padding-left: 14px; transition: border-color 0.2s, box-shadow 0.2s; }
 .at-input span { color: var(--soft); font-weight: 600; }
 .at-input input { flex: 1; min-width: 0; border: 0; background: none; outline: none; padding: 14px 16px 14px 4px; font-size: 17px; }
+.pass-input { position: relative; }
+.pass-input .text-input { width: 100%; padding-right: 48px; }
+.pass-toggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); border: 0; background: none; color: var(--soft); padding: 8px; cursor: pointer; border-radius: 10px; }
+.pass-toggle:hover { color: inherit; }
+.google-auth { display: grid; gap: 12px; justify-items: center; margin: 4px 0 2px; }
+.google-auth[hidden] { display: none; }
+.google-btn { min-height: 44px; }
+.auth-or { display: flex; align-items: center; gap: 10px; width: 100%; color: var(--soft); font-size: 13px; margin: 0; }
+.auth-or::before, .auth-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.auth-help { margin: 0; font-size: 13px; }
 .at-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); }
 
 /* ---------- character editor ---------- */
