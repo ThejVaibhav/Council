@@ -6,6 +6,7 @@ field fails here, not in the UI.
 """
 import asyncio
 import json
+import logging
 from typing import TypeVar
 
 import httpx
@@ -17,6 +18,8 @@ from pydantic import BaseModel
 from app.config import get_settings
 
 T = TypeVar("T", bound=BaseModel)
+
+log = logging.getLogger("council.llm")
 
 MAX_ATTEMPTS = 3
 BACKOFF_SECONDS = 2.0
@@ -60,8 +63,24 @@ async def generate_structured(
 ) -> T:
     """Retries rate limits (429), server errors (5xx) and malformed output with backoff,
     all within one overall deadline so a slow agent can never stall the debate."""
-    if client is None and get_settings().llm_provider == "groq":
-        return await _with_retries(model, timeout, lambda: _groq_call(model, system_prompt, user_message, schema), "Groq free tier")
+    settings = get_settings()
+    if client is None and settings.llm_provider == "groq":
+        fallback = bool(settings.gemini_api_key)
+        try:
+            return await _with_retries(
+                model, timeout, lambda: _groq_call(model, system_prompt, user_message, schema), "Groq free tier",
+                # With a fallback ready, a rate limit goes straight to Gemini instead of waiting it out.
+                retry_codes=RETRYABLE_CODES - {429} if fallback else RETRYABLE_CODES,
+            )
+        except LLMError as e:
+            if not fallback:
+                raise
+            gemini_model = settings.gemini_moderator_model if model == settings.moderator_model else settings.gemini_specialist_model
+            log.warning("Groq failed (%s), falling back to Gemini %s", e, gemini_model)
+            return await generate_structured(
+                model=gemini_model, system_prompt=system_prompt, user_message=user_message, schema=schema,
+                timeout=timeout, client=get_client(),
+            )
     client = client or get_client()
     config = types.GenerateContentConfig(
         system_instruction=system_prompt,
@@ -142,7 +161,7 @@ async def _groq_call(model: str, system_prompt: str, user_message: str, schema: 
         raise LLMError(f"{model} returned output that does not match {schema.__name__}: {e}") from e
 
 
-async def _with_retries(model: str, timeout: float | None, attempt_fn, quota_name: str):
+async def _with_retries(model: str, timeout: float | None, attempt_fn, quota_name: str, retry_codes=RETRYABLE_CODES):
     budget = timeout or get_settings().agent_timeout_seconds
     loop = asyncio.get_running_loop()
     deadline = loop.time() + budget
@@ -158,7 +177,9 @@ async def _with_retries(model: str, timeout: float | None, attempt_fn, quota_nam
         except httpx.HTTPError as e:
             last_error = e
         except _HTTPError as e:
-            if e.code not in RETRYABLE_CODES:
+            if e.code == 429 and e.code not in retry_codes:
+                raise LLMError(f"{model} is rate limited ({quota_name} quota)") from e
+            if e.code not in retry_codes:
                 raise LLMError(f"{model} error {e.code}: {e.message}") from e
             last_error = e
         except LLMError as e:

@@ -141,7 +141,7 @@ class FakeHTTP:
         return httpx.Response(status, json=payload, request=httpx.Request("POST", url))
 
 
-def groq(monkeypatch, responses):
+def groq(monkeypatch, responses, gemini_key=""):
     import httpx
 
     from app import llm
@@ -160,7 +160,11 @@ def groq(monkeypatch, responses):
 
     monkeypatch.setattr(httpx, "AsyncClient", Client)
     monkeypatch.setattr(llm, "BACKOFF_SECONDS", 0.01)
-    monkeypatch.setattr(llm, "get_settings", lambda: type("S", (), {"llm_provider": "groq", "groq_api_key": "k", "agent_timeout_seconds": 5})())
+    monkeypatch.setattr(llm, "get_settings", lambda: type("S", (), {
+        "llm_provider": "groq", "groq_api_key": "k", "gemini_api_key": gemini_key, "agent_timeout_seconds": 5,
+        "specialist_model": "g-small", "moderator_model": "g-big",
+        "gemini_specialist_model": "gem-flash", "gemini_moderator_model": "gem-pro",
+    })())
     return fake
 
 
@@ -184,4 +188,33 @@ def test_groq_retries_rate_limit(monkeypatch):
 def test_groq_client_error_not_retried(monkeypatch):
     groq(monkeypatch, [(400, {"error": {"message": "bad model"}})])
     with pytest.raises(LLMError, match="bad model"):
+        run(generate_structured(model="m", system_prompt="s", user_message="u", schema=SpecialistTurn))
+
+
+def with_gemini(monkeypatch, response):
+    from app import llm
+
+    gem = FakeClient(response)
+    monkeypatch.setattr(llm, "get_client", lambda: gem)
+    return gem
+
+
+def test_groq_rate_limit_falls_back_to_gemini_immediately(monkeypatch):
+    fake = groq(monkeypatch, [(429, {"error": {"message": "slow down"}})], gemini_key="g")
+    gem = with_gemini(monkeypatch, FakeResponse(json.dumps(VALID)))
+    out = run(generate_structured(model="g-big", system_prompt="s", user_message="u", schema=SpecialistTurn))
+    assert out.option_title == "Homestay in Coorg"
+    assert len(fake.bodies) == 1 and gem.calls[0][0] == "gem-pro"
+
+
+def test_groq_error_falls_back_with_specialist_model(monkeypatch):
+    groq(monkeypatch, [(400, {"error": {"message": "bad"}})], gemini_key="g")
+    gem = with_gemini(monkeypatch, FakeResponse(json.dumps(VALID)))
+    run(generate_structured(model="g-small", system_prompt="s", user_message="u", schema=SpecialistTurn))
+    assert gem.calls[0][0] == "gem-flash"
+
+
+def test_no_fallback_without_gemini_key(monkeypatch):
+    groq(monkeypatch, [(429, {"error": {"message": "x"}})] * 3)
+    with pytest.raises(LLMError, match="rate limited"):
         run(generate_structured(model="m", system_prompt="s", user_message="u", schema=SpecialistTurn))

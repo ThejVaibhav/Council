@@ -76,6 +76,8 @@ async def health():
         "database": "ok" if db_ok else "unreachable",
         "llm_provider": settings.llm_provider,
         "llm_key_configured": bool(settings.groq_api_key if settings.llm_provider == "groq" else settings.gemini_api_key),
+        "groq_key_configured": bool(settings.groq_api_key),
+        "gemini_fallback_configured": bool(settings.gemini_api_key),
     }
 
 

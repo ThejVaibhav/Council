@@ -122,7 +122,7 @@ Things only you can do, in order:
 2. Locally: `docker compose up -d db`, put the new key in `backend/.env` (copy from `.env.example`), run the migration.
 3. Run `python -m scripts.try_budget`, then `python -m scripts.run_scenarios`. If a model name is rejected, set the correct ID in `SPECIALIST_MODEL` / `MODERATOR_MODEL`.
 4. Open the app (`npm run dev`) and run the three demo scenarios in the browser.
-5. Deploy: on Render, New → Blueprint, pick this repo, paste `GROQ_API_KEY` from console.groq.com (and `GOOGLE_CLIENT_ID`, see below). One free web service serves the site and the API on the same URL, next to a free Postgres.
+5. Deploy: on Render, New → Blueprint, pick this repo, paste `GROQ_API_KEY` from console.groq.com and `GEMINI_API_KEY` from aistudio.google.com (and `GOOGLE_CLIENT_ID`, see below). One free web service serves the site and the API on the same URL, next to a free Postgres.
 6. Record the screen capture of a full session for the LinkedIn post.
 
 ## Deploy
@@ -133,4 +133,4 @@ Supabase instead of Render Postgres: copy the connection string from Supabase (P
 
 Google sign-in: in Google Cloud Console → APIs & Services → Credentials, create an OAuth client ID of type *Web application*, add your site URL (for example `https://council.onrender.com`, and `http://localhost:5173` for local work) under *Authorized JavaScript origins*, then set `GOOGLE_CLIENT_ID` on the server. The button appears automatically once it is set. Returning users stay signed in for 30 days on the same device, and Google remembers them for one-tap sign-in after that.
 
-Models: Council runs on Groq's free tier by default. Specialists use `SPECIALIST_MODEL` (default `openai/gpt-oss-20b`), the Moderator uses `MODERATOR_MODEL` (default `openai/gpt-oss-120b`). To switch back to Gemini set `LLM_PROVIDER=gemini`, `GEMINI_API_KEY` and Gemini model names. Both are environment variables so they can be changed without code edits.
+Models: Council runs on Groq's free tier by default. Specialists use `SPECIALIST_MODEL` (default `openai/gpt-oss-20b`), the Moderator uses `MODERATOR_MODEL` (default `openai/gpt-oss-120b`). If Groq errors, times out or hits its rate limit, the same call is retried on Gemini automatically (`GEMINI_API_KEY`, models `GEMINI_SPECIALIST_MODEL` / `GEMINI_MODERATOR_MODEL`). Leave `GEMINI_API_KEY` empty to run Groq only, or set `LLM_PROVIDER=gemini` to make Gemini primary. Both are environment variables so they can be changed without code edits.
