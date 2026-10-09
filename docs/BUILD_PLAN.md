@@ -1,6 +1,6 @@
 # Council, Build Plan
 
-Each phase should be runnable and worth looking at before the next one starts. Do not let Claude Code jump ahead to the frontend before the orchestration loop actually works against the real API, a broken core loop hidden behind a polished UI is the worst version of this project to end up with two days before a demo.
+Each phase should be runnable and worth looking at before the next one starts. Do not jump ahead to the frontend before the orchestration loop actually works against the real API, a broken core loop hidden behind a polished UI is the worst version of this project to end up with two days before a demo.
 
 ## Phase 0, scaffold
 
