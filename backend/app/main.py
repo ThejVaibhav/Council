@@ -29,6 +29,9 @@ app = FastAPI(title="Council", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().cors_origin_list,
+    # A separately hosted frontend on Render (e.g. council-web.onrender.com) may call the API directly.
+    # Auth is a bearer header, never cookies, so this exposes nothing to other sites.
+    allow_origin_regex=r"https://[a-z0-9-]+\.onrender\.com",
     allow_methods=["*"],
     allow_headers=["*"],
 )

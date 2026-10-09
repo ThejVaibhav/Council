@@ -129,6 +129,8 @@ Things only you can do, in order:
 
 Render (free): `render.yaml` builds the root `Dockerfile`, which compiles the React app and has FastAPI serve it, so the site and API share one URL (no CORS, no cross-service hostnames). Migrations run when the container starts. Free instances sleep after 15 idle minutes; the first request then takes up to a minute, and the sign-in page says so instead of failing.
 
+Hosting the frontend separately (for example an older `council-web` static site): set `VITE_API_BASE` on it to the API's public URL, such as `https://council-api.onrender.com`, and redeploy it. Any `*.onrender.com` origin is allowed by CORS. `GOOGLE_CLIENT_ID` goes on the service running the API, and the site's own URL goes in Google's authorized JavaScript origins.
+
 Supabase instead of Render Postgres: copy the connection string from Supabase (Project Settings → Database, the pooler URI), set it as `DATABASE_URL` on the service, and remove the `databases` block. SSL and pooler settings are applied automatically.
 
 Google sign-in: in Google Cloud Console → APIs & Services → Credentials, create an OAuth client ID of type *Web application*, add your site URL (for example `https://council.onrender.com`, and `http://localhost:5173` for local work) under *Authorized JavaScript origins*, then set `GOOGLE_CLIENT_ID` on the server. The button appears automatically once it is set. Returning users stay signed in for 30 days on the same device, and Google remembers them for one-tap sign-in after that.

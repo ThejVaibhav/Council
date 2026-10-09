@@ -59,3 +59,11 @@ def test_google_access_token_flow(monkeypatch):
         r = c.post("/auth/google", json={"access_token": "y" * 40}).json()
         assert r["is_new"] is True and r["user"]["display_name"] == "Sam"
         assert c.post("/auth/google", json={}).status_code == 422
+
+
+def test_render_frontend_origin_allowed():
+    with TestClient(app) as c:
+        r = c.options("/config", headers={"Origin": "https://council-web.onrender.com", "Access-Control-Request-Method": "GET"})
+        assert r.headers.get("access-control-allow-origin") == "https://council-web.onrender.com"
+        r = c.options("/config", headers={"Origin": "https://evil.example.com", "Access-Control-Request-Method": "GET"})
+        assert r.headers.get("access-control-allow-origin") is None
