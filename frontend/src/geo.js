@@ -259,13 +259,35 @@ export function planLegs(from, to, modes = []) {
   return [{ mode: road[0] ?? trunk ?? (modes[0] && MODE_INFO[modes[0]] ? modes[0] : 'own_car'), from, to, note: null }]
 }
 
+// Travel-time model shared with the server (backend/app/prices.py: leg_hours); keep the two in step.
+const GHAT_FACTOR = 0.65 // ghat sections run at about two thirds of normal speed
+const GHAT_KM = 40 // the climb into a hill destination is usually the last 30-50 km
+const BREAK_EVERY_H = 2
+const BREAK_MIN = 15
+export const HILL_PLACES = [
+  'araku', 'lambasingi', 'ooty', 'kodaikanal', 'munnar', 'coorg', 'kodagu', 'madikeri', 'chikmagalur', 'sakleshpur',
+  'agumbe', 'wayanad', 'yercaud', 'nandi hills', 'kudremukh', 'horsley hills', 'manali', 'shimla', 'mussoorie',
+  'nainital', 'darjeeling', 'gangtok', 'leh', 'kasol', 'dharamshala', 'mcleodganj', 'lonavala', 'mahabaleshwar',
+  'matheran', 'thekkady', 'valparai', 'kemmangundi', 'gulmarg', 'srisailam',
+]
+export const isHill = (label) => HILL_PLACES.some((h) => String(label ?? '').toLowerCase().includes(h))
+
+/** Door-to-door hours for `km` by `mode`: slower on the ghat into a hill stop, short breaks on long drives. */
+export function legHours(km, mode, toLabel) {
+  const info = MODE_INFO[mode] ?? MODE_INFO.own_car
+  if (info.kind === 'air') return km / info.kmh + 2.5
+  const ghat = isHill(toLabel) ? Math.min(km, GHAT_KM) : 0
+  let hours = (km - ghat) / info.kmh + ghat / (info.kmh * GHAT_FACTOR)
+  if (['own_car', 'rental', 'bike', 'cab'].includes(mode)) hours += Math.floor(hours / BREAK_EVERY_H) * (BREAK_MIN / 60)
+  return hours
+}
+
 /** Distance and time for a leg; `routeKm` from a real route overrides the estimate. */
 export function legNumbers(leg, routeKm) {
   const info = MODE_INFO[leg.mode] ?? MODE_INFO.own_car
   const straight = distanceKm(leg.from, leg.to)
   const km = routeKm ?? (info.kind === 'air' ? straight : straight * 1.3)
-  const hours = km / info.kmh + (info.kind === 'air' ? 2 : 0)
-  return { km, hours }
+  return { km, hours: legHours(km, leg.mode, leg.to?.label ?? leg.to?.name) }
 }
 
 export function fmtKm(km) {

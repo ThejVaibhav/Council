@@ -84,9 +84,16 @@ def moderator_message(brief: str, round_one: dict, round_two: dict) -> str:
     return (
         f"Brief:\n{brief}\n\nRound one transcript:\n{_format_turns(round_one)}\n\n"
         f"Round two transcript:\n{_format_turns(round_two)}\n\n"
-        "estimated_cost is the total for the whole group. Fill cost_breakdown with the line items (whole group) "
-        "that add up exactly to it. Only use places that are in the brief or are real stops on that route; if a "
-        "place in the brief looks wrong or unreachable, say so in the summary instead of planning around it."
+        "estimated_cost is the total for the whole group; set headcount to the group size. Fill cost_breakdown with "
+        "line items (whole group) that add up exactly to it, each with a category and an assumption showing the "
+        "arithmetic from the reference prices (e.g. '715 km x Rs 1.3/km state bus x 1 seat'). Fill itinerary with every "
+        "leg in order, with realistic door-to-door hours (use the route's hours; ghat roads are slow) and times that add "
+        "up: an overnight leg arrives the next day. Own vehicles are wherever the group last drove them, so a leg by "
+        "your own car or bike must start where that vehicle is; otherwise rent one there and cost the rental. Include "
+        "the journey back to the start, and collect any vehicle left on the way, unless the brief says one way. Only use "
+        "places that are in the brief or are real stops on that route; if a place looks wrong or unreachable, say so in "
+        "the summary instead of planning around it. Do not call the plan within budget unless every leg, night and the "
+        "return are costed."
     )
 
 

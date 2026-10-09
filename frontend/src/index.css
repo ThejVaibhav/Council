@@ -807,3 +807,14 @@ a.btn { text-decoration: none; color: inherit; }
 .round-digest .digest-stance.s-support { color: #1d7a52; }
 .round-digest li.is-missing .digest-title { color: #b42318; font-style: italic; }
 @media (max-width: 600px) { .round-digest .digest-stance { display: none; } .round-digest li { font-size: 14px; } }
+
+/* ---------- itinerary and cost assumptions ---------- */
+.itinerary { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 2px; border-top: 1px solid var(--line); }
+.itinerary li { display: grid; grid-template-columns: 170px minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+.it-when { font-variant-numeric: tabular-nums; color: color-mix(in srgb, var(--ink) 75%, var(--soft)); font-size: 14px; }
+.it-hours { font-variant-numeric: tabular-nums; color: color-mix(in srgb, var(--ink) 70%, var(--soft)); font-size: 14px; }
+@media (max-width: 600px) { .itinerary li { grid-template-columns: minmax(0, 1fr) auto; } .it-when { grid-column: 1 / -1; } }
+.cost-why { display: block; font-size: 12.5px; color: var(--soft); margin-top: 2px; }
+.budget-bar.is-doubt i { background: #d99a2b; }
+.stub-warn { font-size: 13px; font-weight: 650; color: #9a5a0c; }
+.app.is-dark .stub-warn { color: #f1c66e; }

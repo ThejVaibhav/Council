@@ -5,7 +5,7 @@ import { AGENTS, budgetInfo, formatCost } from '../agents'
 import { STATUS_TEXT, consensusLabel, participationFromItems } from '../council'
 import RichText from './RichText'
 import { TRAVEL } from '../avatarOptions'
-import { MODE_INFO, fmtKm } from '../geo'
+import { MODE_INFO, fmtKm, fmtTime } from '../geo'
 import { useJourney } from '../hooks/useJourney'
 import { findPlace, placeInText } from '../places'
 import AgentAvatar from './AgentAvatar'
@@ -97,6 +97,9 @@ export default function Verdict({ plan, brief, constraints, items = [], people =
   const status = validation?.status ?? 'unchecked'
   const participation = validation?.participation ?? participationFromItems(items)
   const breakdown = plan.cost_breakdown ?? []
+  // A total checked against an incomplete set of costs is not "within budget" yet.
+  const budgetDoubt = (validation?.checks ?? []).some((c) => ['budget', 'costs', 'itinerary'].includes(c.area) && (c.level === 'error' || c.level === 'warn'))
+  const realistic = validation?.realistic_minimum
 
   // Where to: the typed destination, or the first known place the plan itself names.
   const fromText = constraints?.origin?.label ?? constraints?.location ?? ''
@@ -153,13 +156,16 @@ export default function Verdict({ plan, brief, constraints, items = [], people =
           {perPerson && <span className="stub-per">about {perPerson} per person</span>}
           {share != null && (
             <>
-              <div className={`budget-bar ${share > 1 ? 'is-over' : ''}`} role="img" aria-label={`${Math.round(share * 100)}% of the budget`}>
+              <div className={`budget-bar ${share > 1 ? 'is-over' : budgetDoubt ? 'is-doubt' : ''}`} role="img" aria-label={`${Math.round(share * 100)}% of the budget`}>
                 <motion.i initial={{ width: 0 }} animate={{ width: `${Math.min(share, 1) * 100}%` }} transition={{ duration: 1, delay: 0.4, ease: [0.22, 1, 0.36, 1] }} />
               </div>
               <span className="stub-foot">
-                {Math.round(share * 100)}% of the {formatCost(cap)} group budget
+                {budgetDoubt ? 'Stated total, ' : ''}{Math.round(share * 100)}% of the {formatCost(cap)} group budget
                 {budget.basis === 'per_person' ? ` (${formatCost(budget.perPerson)} × ${budget.people})` : ''}
               </span>
+              {budgetDoubt && realistic > plan.estimated_cost && (
+                <span className="stub-warn">At least {formatCost(realistic)} once every leg, night and the trip home are costed</span>
+              )}
             </>
           )}
           <span className="barcode" aria-hidden="true" />
@@ -178,12 +184,26 @@ export default function Verdict({ plan, brief, constraints, items = [], people =
       <div className="plan-detail glass">
         <span className="field-label">The plan</span>
         <RichText text={plan.description} />
+        {plan.itinerary?.length > 0 && (
+          <ol className="itinerary">
+            {plan.itinerary.map((l, i) => (
+              <li key={i}>
+                <span className="it-when">Day {l.day} · {l.depart}{l.arrive ? ` → ${l.arrive_day !== l.day ? `day ${l.arrive_day}, ` : ''}${l.arrive}` : ''}</span>
+                <span className="it-what"><b>{l.from_place} → {l.to_place}</b> by {MODE_INFO[l.mode]?.label.toLowerCase() ?? l.mode}{l.vehicle === 'own' ? ' (your own)' : l.vehicle === 'rental' ? ' (rented)' : ''}</span>
+                <span className="it-hours">{fmtTime(l.hours)}</span>
+              </li>
+            ))}
+          </ol>
+        )}
         {breakdown.length > 0 && (
           <table className="cost-table">
             <caption>Cost breakdown{travellers > 1 ? `, whole group of ${travellers}` : ''}</caption>
             <tbody>
               {breakdown.map((c, i) => (
-                <tr key={i}><th scope="row">{c.item}</th><td>{formatCost(c.amount)}</td></tr>
+                <tr key={i}>
+                  <th scope="row">{c.item}{c.assumption && <small className="cost-why">{c.assumption}</small>}</th>
+                  <td>{formatCost(c.amount)}</td>
+                </tr>
               ))}
             </tbody>
             <tfoot>

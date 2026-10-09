@@ -192,7 +192,13 @@ export default function Planner({ me, friends = [], draft, setDraft, sceneId, sc
       if (!constraints.location) constraints.location = constraints.origin.label
       // Only the stops that passed the route check travel with the plan.
       if (tripStops.length && journey.points?.length > 1)
-        constraints.stops = journey.points.slice(1).map((p) => ({ ...pinOf(p), ...(p.mode ? { mode: p.mode } : {}) }))
+        constraints.stops = journey.points.slice(1).map((p, i) => {
+          // The route card's numbers for this hop, so the server checks exactly what the user saw.
+          const hop = journey.legs.filter((l) => l.stop === i)
+          const km = hop.reduce((n, l) => n + l.km, 0)
+          const hours = hop.reduce((n, l) => n + l.hours, 0)
+          return { ...pinOf(p), ...(p.mode ? { mode: p.mode } : {}), ...(hop.length ? { km: Math.round(km * 10) / 10, hours: Math.round(hours * 100) / 100 } : {}) }
+        })
       if (!constraints.destination) constraints.destination = toText
     } else if (draft.origin) constraints.origin = draft.origin
     onSend({ brief: draft.brief.trim(), constraints, scene: sceneId, member_ids: draft.friendIds })

@@ -13,6 +13,7 @@ import asyncpg
 from app import agents
 from app.schemas import ModeratorSynthesis, SpecialistTurn
 from app.travel import describe
+from app.prices import brief_notes
 from app.validation import budget_basis, group_budget, validate_plan
 
 log = logging.getLogger(__name__)
@@ -46,7 +47,11 @@ def _brief_with_constraints(brief: str, constraints: dict | None) -> str:
                 lines.append(f"- budget: {v}. Every estimated_cost must be the total for the whole group.")
             continue
         if k == "stops":
-            legs = [f"{st.get('label') or 'a stop'}" + (f" by {describe([st['mode']])}" if st.get("mode") else "") for st in v]
+            legs = [
+                f"{st.get('label') or 'a stop'}" + (f" by {describe([st['mode']])}" if st.get("mode") else "")
+                + (f" (about {st['km']:.0f} km, {st['hours']:.1f} h door to door)" if isinstance(st.get("km"), (int, float)) and isinstance(st.get("hours"), (int, float)) else "")
+                for st in v
+            ]
             lines.append(f"- route, in order: {' -> '.join(legs)}. Keep these stops and, where given, these modes for each leg.")
             continue
         if k == "travel":
@@ -58,7 +63,8 @@ def _brief_with_constraints(brief: str, constraints: dict | None) -> str:
                 )
             continue
         lines.append(f"- {k}: {v}")
-    return f"{brief}\n\nStructured constraints:\n" + "\n".join(lines) if lines else brief
+    body = f"{brief}\n\nStructured constraints:\n" + "\n".join(lines) if lines else brief
+    return f"{body}\n\n{brief_notes()}"
 
 
 async def _run_round(pool, session_id, round_no, messages: dict[str, str], emit: Emit, errors: dict | None = None) -> dict:

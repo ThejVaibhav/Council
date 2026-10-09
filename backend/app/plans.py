@@ -31,8 +31,11 @@ class Point(BaseModel):
 
 
 class Stop(Point):
-    """A stop on a multi-stop trip; `mode` is how the group gets to it from the previous stop."""
+    """A stop on a multi-stop trip; `mode` is how the group gets to it from the previous stop, and km/hours are
+    the numbers on the planner's route card for that hop, so the checks use the same figures the user saw."""
     mode: Literal[tuple(TRAVEL_MODES)] | None = None  # type: ignore[valid-type]
+    km: float | None = Field(default=None, ge=0, le=20000)
+    hours: float | None = Field(default=None, ge=0, le=500)
 
 
 class Constraints(BaseModel):
