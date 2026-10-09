@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { ArrowRight, ExternalLink, Map as MapIcon, Route } from 'lucide-react'
 import { Suspense, lazy, useState } from 'react'
 import { MODE_INFO, fmtKm, fmtTime } from '../geo'
+import ErrorBoundary from './ErrorBoundary'
 import JourneyStrip from './art/JourneyStrip'
 import { MODE_COLOR, vehicleSvg } from './art/vehicles'
 
@@ -35,7 +36,7 @@ export default function Journey({ journey: j, fromText, toText, compact = false 
     return (
       <div className={`journey ${compact ? 'is-compact' : ''}`}>
         <p className="journey-miss">
-          Couldn't find {!j.from ? <b>{fromText}</b> : <b>{toText}</b>} on the map. Try a nearby town or city name.
+          Couldn't find <b>{j.missingText ?? (!j.from ? fromText : toText)}</b> on the map. Try a nearby town or city name.
         </p>
       </div>
     )
@@ -47,9 +48,12 @@ export default function Journey({ journey: j, fromText, toText, compact = false 
     <div className={`journey ${compact ? 'is-compact' : ''}`}>
       <div className="journey-head">
         <div className="journey-ends">
-          <span className="journey-end">{from.label}</span>
-          <ArrowRight size={14} />
-          <span className="journey-end">{to.label}</span>
+          {(j.points ?? [from, to]).map((p, i) => (
+            <span key={`${p.label}-${i}`} className="journey-hop">
+              {i > 0 && <ArrowRight size={14} />}
+              <span className="journey-end">{p.label}</span>
+            </span>
+          ))}
         </div>
         <div className="journey-total">
           <b>{fmtKm(summary.km)}</b> · <b>~{summary.time}</b>
@@ -64,6 +68,7 @@ export default function Journey({ journey: j, fromText, toText, compact = false 
         </div>
       </div>
 
+      <ErrorBoundary resetKey={legs.map((l) => l.mode).join('|') + view} fallback={<p className="journey-note">The route picture couldn't be drawn. The legs below are still right.</p>}>
       <div className="journey-stage">
         <AnimatePresence mode="wait" initial={false}>
           {showMap ? (
@@ -74,12 +79,13 @@ export default function Journey({ journey: j, fromText, toText, compact = false 
             </motion.div>
           ) : (
             <motion.div key="journey" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-              <JourneyStrip legs={legs} fromLabel={from.label} toLabel={to.label} />
+              <JourneyStrip legs={legs} fromLabel={from.label} toLabel={to.label} stopLabels={legs.slice(0, -1).map((l, i) => (j.points && legs[i + 1].stop !== l.stop ? j.points[legs[i + 1].stop]?.label : null))} />
             </motion.div>
           )}
         </AnimatePresence>
         {view === 'map' && mapFailed && <p className="journey-note">The map couldn't load right now, so here's the journey view instead.</p>}
       </div>
+      </ErrorBoundary>
 
       <ol className="journey-legs">
         {legs.map((l, i) => (

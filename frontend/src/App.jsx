@@ -1,6 +1,7 @@
 import { AnimatePresence, MotionConfig } from 'motion/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { DEMO, api } from './api'
+import ErrorBoundary from './components/ErrorBoundary'
 import Auth from './components/Auth'
 import CharacterEditor from './components/CharacterEditor'
 import DebateView from './components/DebateView'
@@ -15,7 +16,7 @@ import { useDebate } from './hooks/useDebate'
 import { SCENARIOS } from './scenarios'
 import { SCENES, detectScene } from './scenes'
 
-const EMPTY_DRAFT = { brief: '', constraints: { budget: '', dates: '', location: '', destination: '' }, people: 1, friendIds: [], travel: [], origin: null, active: null }
+const EMPTY_DRAFT = { brief: '', constraints: { budget: '', dates: '', location: '', destination: '' }, people: 1, friendIds: [], travel: [], travelAuto: true, origin: null, active: null }
 
 function useDebounced(value, ms) {
   const [v, setV] = useState(value)
@@ -157,6 +158,7 @@ export default function App() {
       people: c.headcount ?? 1,
       friendIds: (debate.plan?.members ?? []).filter((m) => m.username !== user.username).map((m) => m.id),
       travel: c.travel ?? [],
+      travelAuto: Boolean(c.stops?.length) || !c.travel?.length,
       origin: c.origin && c.origin.label === c.location ? c.origin : null,
       active: null,
     })
@@ -206,6 +208,7 @@ export default function App() {
           requests={friendLists.incoming.length}
           demo={DEMO}
         />
+        <ErrorBoundary resetKey={page}>
         <AnimatePresence mode="wait">
           {page === 'recap' && (
             <RecapView
@@ -220,7 +223,7 @@ export default function App() {
               }}
             />
           )}
-          {page === 'auth' && <Auth key="auth" onSignup={auth(api.signup)} onLogin={auth(api.login)} onGoogle={auth(api.google)} busy={authBusy} error={authError} demo={DEMO} joining={Boolean(link.join)} />}
+          {page === 'auth' && <Auth key="auth" onSignup={auth(api.signup)} onLogin={auth(api.login)} onGoogle={auth(api.google)} onClearError={() => setAuthError(null)} busy={authBusy} error={authError} demo={DEMO} joining={Boolean(link.join)} />}
           {(page === 'create' || page === 'editor') && (
             <CharacterEditor key={page} user={user} mode={page === 'create' ? 'create' : 'edit'} onSave={saveCharacter} onCancel={page === 'editor' ? () => setView(debate.status !== 'idle' ? 'debate' : 'plan') : null} busy={authBusy} error={authError} />
           )}
@@ -242,6 +245,7 @@ export default function App() {
             />
           )}
         </AnimatePresence>
+        </ErrorBoundary>
       </div>
     </MotionConfig>
   )

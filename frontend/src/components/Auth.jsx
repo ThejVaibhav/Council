@@ -80,7 +80,7 @@ const PERKS = [
   { icon: Users, text: 'Invite friends and watch the debate live together' },
 ]
 
-export default function Auth({ onSignup, onLogin, onGoogle, busy, error, demo, joining }) {
+export default function Auth({ onSignup, onLogin, onGoogle, onClearError, busy, error, demo, joining }) {
   const [mode, setMode] = useState('login')
   const [show, setShow] = useState(false)
   const [note, setNote] = useState(null)
@@ -92,6 +92,7 @@ export default function Auth({ onSignup, onLogin, onGoogle, busy, error, demo, j
     setMode(m)
     setShow(false)
     setNote(null)
+    onClearError?.()
   }
   const submit = (e) => {
     e.preventDefault()

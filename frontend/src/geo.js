@@ -139,6 +139,12 @@ const AIRPORTS = [
   ['KUU', 'Kullu-Manali airport', 31.877, 77.154], ['DED', 'Dehradun airport', 30.19, 78.18], ['VNS', 'Varanasi airport', 25.452, 82.859],
   ['AMD', 'Ahmedabad airport', 23.077, 72.635], ['IXC', 'Chandigarh airport', 30.673, 76.788], ['CNN', 'Kannur airport', 11.918, 75.547],
   ['HBX', 'Hubballi airport', 15.362, 75.085], ['VGA', 'Vijayawada airport', 16.53, 80.797], ['IXA', 'Agartala airport', 23.887, 91.24],
+  ['VTZ', 'Visakhapatnam airport', 17.721, 83.224], ['RJA', 'Rajahmundry airport', 17.11, 81.818], ['TIR', 'Tirupati airport', 13.632, 79.543],
+  ['BBI', 'Bhubaneswar airport', 20.244, 85.818], ['GAU', 'Guwahati airport', 26.106, 91.586], ['ATQ', 'Amritsar airport', 31.709, 74.797],
+  ['LKO', 'Lucknow airport', 26.761, 80.889], ['NAG', 'Nagpur airport', 21.092, 79.047], ['IDR', 'Indore airport', 22.722, 75.801],
+  ['PAT', 'Patna airport', 25.591, 85.088], ['IXJ', 'Jammu airport', 32.689, 74.837], ['DHM', 'Dharamshala (Gaggal) airport', 32.165, 76.263],
+  ['JDH', 'Jodhpur airport', 26.251, 73.049], ['IXU', 'Aurangabad airport', 19.863, 75.398], ['IXR', 'Ranchi airport', 23.314, 85.322],
+  ['KJB', 'Kurnool airport', 15.71, 78.17], ['CDP', 'Kadapa airport', 14.51, 78.77], ['IXS', 'Silchar airport', 24.913, 92.979],
 ]
 
 function nearestAirport(p) {

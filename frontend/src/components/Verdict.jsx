@@ -30,9 +30,10 @@ export default function Verdict({ plan, brief, constraints, items = [], people =
   const fromText = constraints?.origin?.label ?? constraints?.location ?? ''
   const guessedTo = useMemo(() => (constraints?.destination || constraints?.dest ? null : placeInText(`${plan.title} ${plan.summary} ${plan.description}`, findPlace(constraints?.location))), [plan, constraints])
   const toText = constraints?.dest?.label ?? constraints?.destination ?? guessedTo?.name ?? ''
-  const journey = useJourney({ fromText, toText, origin: constraints?.origin, dest: constraints?.dest, modes: constraints?.travel ?? [] })
+  const stops = useMemo(() => constraints?.stops?.map((st) => ({ text: st.label, pin: st, mode: st.mode })) ?? null, [constraints])
+  const journey = useJourney({ fromText, toText, origin: constraints?.origin, dest: constraints?.dest, stops, modes: constraints?.travel ?? [] })
   const route = journey.status === 'ready'
-    ? { from: journey.from.label, to: journey.to.label, km: fmtKm(journey.summary.km), time: journey.summary.time, modes: journey.legs.length > 1 || constraints?.travel?.length ? journey.summary.modes : MODE_INFO[journey.legs[0].mode]?.label }
+    ? { from: journey.from.label, to: (journey.points ?? []).slice(1).map((p) => p.label).join(' → ') || journey.to.label, km: fmtKm(journey.summary.km), time: journey.summary.time, modes: journey.legs.length > 1 || constraints?.travel?.length ? journey.summary.modes : MODE_INFO[journey.legs[0].mode]?.label }
     : null
 
   return (

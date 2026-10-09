@@ -1,15 +1,17 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowRight, Bike, Bus, CalendarDays, Car, CarTaxiFront, Check, ChevronDown, Footprints, IndianRupee, KeyRound, LoaderCircle, LocateFixed, MapPin, Minus, Plane, Plus, TrainFront, Wand2 } from 'lucide-react'
+import { ArrowRight, Bike, Bus, Car, CarTaxiFront, Check, ChevronDown, Footprints, IndianRupee, KeyRound, LoaderCircle, LocateFixed, MapPin, Minus, Plane, Plus, TrainFront, Wand2 } from 'lucide-react'
 import { TRAVEL } from '../avatarOptions'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { cleanConstraints } from '../constraints'
 import { SCENARIOS } from '../scenarios'
 import { SCENES, SCENE_IDS, detectPeople } from '../scenes'
 import Crew, { Portrait } from './art/Crew'
+import DatePicker from './DatePicker'
 import Journey from './Journey'
 import { currentPosition, reverseGeocode } from '../geo'
 import { useJourney } from '../hooks/useJourney'
 import { findPlace, placeInText } from '../places'
+import { parseTrip } from '../trip'
 import { Flag } from 'lucide-react'
 
 function greeting(name) {
@@ -107,12 +109,38 @@ export default function Planner({ me, friends = [], draft, setDraft, sceneId, sc
     return () => clearTimeout(t)
   }, [draft.brief, setDraft])
 
-  const fromPlace = findPlace(draft.constraints.location)
-  const fromText = draft.constraints.location.trim()
+  // The message is the source of truth for the route: places in order, and how each leg is travelled.
+  const trip = useMemo(() => parseTrip(draft.brief), [draft.brief])
+  const auto = draft.travelAuto !== false
+  const modesKey = trip.modes.join(',')
+  useEffect(() => {
+    if (!auto) return
+    setDraft((d) => (d.travel.join(',') === modesKey ? d : { ...d, travel: modesKey ? modesKey.split(',') : [] }))
+  }, [auto, modesKey, setDraft])
+
+  const typedFrom = draft.constraints.location.trim()
   const typedTo = (draft.constraints.destination ?? '').trim()
-  const guessedTo = typedTo ? null : placeInText(draft.brief, fromPlace)
-  const toText = typedTo || guessedTo?.name || ''
-  const journey = useJourney({ fromText, toText, origin: draft.origin, modes: draft.travel, enabled: fromText.length >= 2 || Boolean(draft.origin) })
+  // Start: what the user typed or located, else "from X" in the message, else the first place mentioned.
+  let tripStops = trip.stops.map((name, i) => ({ text: name, mode: auto ? trip.legModes[i] : null }))
+  let fromText = typedFrom || trip.start || ''
+  if (!fromText && !draft.origin && tripStops.length >= 2) {
+    fromText = tripStops[0].text
+    tripStops = tripStops.slice(1)
+  }
+  tripStops = tripStops.filter((st) => st.text.toLowerCase() !== fromText.toLowerCase())
+  if (typedTo && !tripStops.some((st) => st.text.toLowerCase().startsWith(typedTo.toLowerCase()) || typedTo.toLowerCase().startsWith(st.text.toLowerCase().split(' ')[0])))
+    tripStops.push({ text: typedTo, mode: null })
+  const fromPlace = findPlace(fromText)
+  const guessedTo = typedTo || tripStops.length ? null : placeInText(draft.brief, fromPlace)
+  const toText = tripStops[tripStops.length - 1]?.text || guessedTo?.name || ''
+  const journey = useJourney({
+    fromText,
+    toText,
+    origin: draft.origin,
+    stops: tripStops.length ? tripStops : null,
+    modes: draft.travel,
+    enabled: fromText.length >= 2 || Boolean(draft.origin),
+  })
   const [locating, setLocating] = useState(false)
   const [locError, setLocError] = useState(null)
   const useMyLocation = async () => {
@@ -137,8 +165,10 @@ export default function Planner({ me, friends = [], draft, setDraft, sceneId, sc
       const friendIds = d.friendIds.includes(id) ? d.friendIds.filter((x) => x !== id) : [...d.friendIds, id]
       return { ...d, friendIds, people: Math.max(d.people, 1 + friendIds.length) }
     })
+  // Picking a chip by hand takes over from the message; the route then uses these modes for every leg.
   const toggleTravel = (id) =>
-    setDraft((d) => ({ ...d, travel: id === 'any' ? [] : d.travel.includes(id) ? d.travel.filter((x) => x !== id) : [...d.travel, id] }))
+    setDraft((d) => ({ ...d, travelAuto: false, travel: id === 'any' ? [] : d.travel.includes(id) ? d.travel.filter((x) => x !== id) : [...d.travel, id] }))
+  const followMessage = () => setDraft((d) => ({ ...d, travelAuto: true }))
   // Typing a new starting point drops the exact location from the device.
   const setField = (k) => (e) => setDraft((d) => ({ ...d, ...(k === 'location' ? { origin: null } : {}), constraints: { ...d.constraints, [k]: e.target.value } }))
   const ready = draft.brief.trim().length >= 10
@@ -153,7 +183,10 @@ export default function Planner({ me, friends = [], draft, setDraft, sceneId, sc
       const pinOf = (p) => ({ lat: Number(p.lat.toFixed(5)), lon: Number(p.lon.toFixed(5)), label: String(p.label ?? p.name).slice(0, 200) })
       constraints.origin = pinOf(journey.from)
       constraints.dest = pinOf(journey.to)
-      if (!constraints.destination && guessedTo) constraints.destination = guessedTo.name
+      if (!constraints.location) constraints.location = constraints.origin.label
+      if (tripStops.length && journey.points?.length === tripStops.length + 1)
+        constraints.stops = journey.points.slice(1).map((p, i) => ({ ...pinOf(p), ...(tripStops[i].mode ? { mode: tripStops[i].mode } : {}) }))
+      if (!constraints.destination) constraints.destination = toText
     } else if (draft.origin) constraints.origin = draft.origin
     onSend({ brief: draft.brief.trim(), constraints, scene: sceneId, member_ids: draft.friendIds })
   }
@@ -250,28 +283,27 @@ export default function Planner({ me, friends = [], draft, setDraft, sceneId, sc
             <IndianRupee size={15} />
             <input id="c-budget" value={draft.constraints.budget} onChange={setField('budget')} placeholder="Budget" />
           </label>
-          <label className="detail" htmlFor="c-dates">
-            <CalendarDays size={15} />
-            <input id="c-dates" value={draft.constraints.dates} onChange={setField('dates')} placeholder="When" />
-          </label>
+          <DatePicker id="c-dates" value={draft.constraints.dates} onChange={(v) => setDraft((d) => ({ ...d, constraints: { ...d.constraints, dates: v } }))} />
           <label className={`detail detail-locate ${draft.origin ? 'is-pinned' : ''}`} htmlFor="c-location">
             <MapPin size={15} />
-            <input id="c-location" value={draft.constraints.location} onChange={setField('location')} placeholder="Starting from" />
+            <input id="c-location" value={draft.constraints.location} onChange={setField('location')} placeholder={!typedFrom && fromText ? `Starting from: ${fromText}` : 'Starting from'} />
             <button type="button" className="locate-btn" onClick={useMyLocation} disabled={locating} aria-label="Use my current location" title="Use my current location">
               {locating ? <LoaderCircle size={15} className="spin" /> : <LocateFixed size={15} />}
             </button>
           </label>
           <label className="detail" htmlFor="c-destination">
             <Flag size={15} />
-            <input id="c-destination" value={draft.constraints.destination ?? ''} onChange={setField('destination')} placeholder={guessedTo ? `Going to (${guessedTo.name}?)` : 'Going to (optional)'} />
+            <input id="c-destination" value={draft.constraints.destination ?? ''} onChange={setField('destination')} placeholder={!typedTo && toText ? `Going to: ${toText}` : 'Going to (optional)'} />
           </label>
         </div>
 
         {locError && <p className="hint small loc-error" role="status">{locError}</p>}
         <AnimatePresence initial={false}>
-          {(fromText.length >= 2 || draft.origin) && (
+          {(fromText.length >= 2 || draft.origin || tripStops.length > 0) && (
             <motion.div className="route-wrap" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
-              {toText ? (
+              {!(fromText.length >= 2 || draft.origin) ? (
+                <p className="journey-prompt"><MapPin size={14} /> Going to {toText}. Add where you're starting from and the route draws itself.</p>
+              ) : toText ? (
                 <Journey journey={journey} fromText={fromText || 'your location'} toText={toText} />
               ) : (
                 <p className="journey-prompt"><Flag size={14} /> Add where you're going and the route draws itself, with every change of vehicle on the way.</p>
@@ -281,7 +313,16 @@ export default function Planner({ me, friends = [], draft, setDraft, sceneId, sc
         </AnimatePresence>
 
         <div className="travel">
-          <span className="field-label">Getting there <span className="optional">pick any that work for you</span></span>
+          <span className="field-label">
+            Getting there{' '}
+            {auto && trip.modes.length ? (
+              <span className="optional">picked from your message, tap to change</span>
+            ) : !auto && trip.modes.length ? (
+              <button type="button" className="link-btn optional-link" onClick={followMessage}>use what my message says</button>
+            ) : (
+              <span className="optional">pick any that work for you</span>
+            )}
+          </span>
           <div className="travel-chips" role="group" aria-label="Travel modes">
             <button type="button" className={`travel-chip ${draft.travel.length === 0 ? 'is-on' : ''}`} aria-pressed={draft.travel.length === 0} onClick={() => toggleTravel('any')}>
               <Wand2 size={15} /> Council decides
@@ -313,6 +354,7 @@ export default function Planner({ me, friends = [], draft, setDraft, sceneId, sc
                     people: Math.max(Number(s.constraints.headcount), 1 + draft.friendIds.length),
                     friendIds: draft.friendIds,
                     travel: s.travel ?? [],
+                    travelAuto: !s.travel?.length,
                     active: s.label,
                   })
                 }

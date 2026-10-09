@@ -67,3 +67,10 @@ def test_render_frontend_origin_allowed():
         assert r.headers.get("access-control-allow-origin") == "https://council-web.onrender.com"
         r = c.options("/config", headers={"Origin": "https://evil.example.com", "Access-Control-Request-Method": "GET"})
         assert r.headers.get("access-control-allow-origin") is None
+
+
+def test_route_stops_reach_the_agents():
+    from app.orchestrator import _brief_with_constraints
+
+    text = _brief_with_constraints("Trip", {"stops": [{"lat": 17.7, "lon": 83.2, "label": "Vizag", "mode": "bike"}, {"lat": 18.3, "lon": 82.9, "label": "Araku", "mode": "own_car"}]})
+    assert "Vizag by motorbike -> Araku by own car" in text

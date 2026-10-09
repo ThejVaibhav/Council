@@ -43,7 +43,7 @@ function Glyph({ mode, flip }) {
  * The illustrated journey: a zig-zag road from start to finish, coloured per leg, with the vehicle
  * driving each leg in turn and swapping (bike → car, cab → plane) with a puff at every transfer.
  */
-export default function JourneyStrip({ legs, fromLabel, toLabel }) {
+export default function JourneyStrip({ legs, fromLabel, toLabel, stopLabels = [] }) {
   const id = useId().replace(/:/g, '')
   const reduce = useReducedMotion()
   const pathRef = useRef(null)
@@ -63,8 +63,13 @@ export default function JourneyStrip({ legs, fromLabel, toLabel }) {
       const pt = p.getPointAtLength(Math.max(0, Math.min(1, f)) * L)
       return [pt.x, pt.y]
     }
-    setGeom({ L, at, stops: spans.slice(0, -1).map(([, e]) => at(e)), mids: spans.map(([s, e]) => at((s + e) / 2)) })
-  }, [spans])
+    setGeom({ L, at })
+  }, [])
+  // Derived on every render from the current legs, so a route that gains or loses a leg can never
+  // be drawn with the previous route's transfer points.
+  const stops = useMemo(() => (geom ? spans.slice(0, -1).map(([, e]) => geom.at(e)) : []), [geom, spans])
+  const mids = useMemo(() => (geom ? spans.map(([s, e]) => geom.at((s + e) / 2)) : []), [geom, spans])
+
 
   useEffect(() => {
     if (!geom || reduce) return
@@ -120,6 +125,7 @@ export default function JourneyStrip({ legs, fromLabel, toLabel }) {
     return () => cancelAnimationFrame(raf)
   }, [geom, spans, reduce])
 
+
   const end = geom ? geom.at(1) : ROAD[ROAD.length - 1]
   const begin = ROAD[0]
 
@@ -161,15 +167,20 @@ export default function JourneyStrip({ legs, fromLabel, toLabel }) {
       ))}
 
       {/* transfer points */}
-      {geom?.stops.map(([x, y], i) => (
+      {stops.map(([x, y], i) => legs[i + 1] && (
         <motion.g key={`stop-${key}-${i}`} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.6 + i * 0.55, type: 'spring', stiffness: 380, damping: 16 }} style={{ transformBox: 'fill-box', transformOrigin: 'center' }}>
           <circle cx={x} cy={y} r="9" fill="var(--paper, #fffaf2)" stroke={MODE_COLOR[legs[i + 1].mode]} strokeWidth="3" />
           <circle cx={x} cy={y} r="3.4" fill={MODE_COLOR[legs[i + 1].mode]} />
+          {stopLabels[i] && (
+            <foreignObject x={Math.min(Math.max(x - 90, 4), W - 184)} y={y + 10} width="180" height="28">
+              <div className="journey-tag is-stop">{stopLabels[i]}</div>
+            </foreignObject>
+          )}
         </motion.g>
       ))}
 
       {/* static glyphs when motion is reduced */}
-      {reduce && geom?.mids.map(([x, y], i) => (
+      {reduce && mids.map(([x, y], i) => legs[i] && (
         <g key={`mid-${i}`} transform={`translate(${x} ${y - 14}) scale(0.8)`}>
           <Glyph mode={legs[i].mode} />
         </g>
@@ -205,7 +216,7 @@ export default function JourneyStrip({ legs, fromLabel, toLabel }) {
                 transition={{ type: 'spring', stiffness: 520, damping: 20 }}
                 style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
               >
-                <Glyph mode={legs[leg]?.mode} flip={flip} />
+                <Glyph mode={(legs[leg] ?? legs[0])?.mode} flip={flip} />
               </motion.g>
             </AnimatePresence>
           </g>

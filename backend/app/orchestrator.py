@@ -33,6 +33,10 @@ def _brief_with_constraints(brief: str, constraints: dict | None) -> str:
     for k, v in constraints.items():
         if v in (None, "", []) or k in ("origin", "dest"):
             continue
+        if k == "stops":
+            legs = [f"{st.get('label') or 'a stop'}" + (f" by {describe([st['mode']])}" if st.get("mode") else "") for st in v]
+            lines.append(f"- route, in order: {' -> '.join(legs)}. Keep these stops and, where given, these modes for each leg.")
+            continue
         if k == "travel":
             modes = describe(v)
             if modes:

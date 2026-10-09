@@ -30,6 +30,11 @@ class Point(BaseModel):
     label: str | None = Field(default=None, max_length=200)
 
 
+class Stop(Point):
+    """A stop on a multi-stop trip; `mode` is how the group gets to it from the previous stop."""
+    mode: Literal[tuple(TRAVEL_MODES)] | None = None  # type: ignore[valid-type]
+
+
 class Constraints(BaseModel):
     budget: str | int | float | None = None
     headcount: int | None = Field(default=None, ge=1, le=100)
@@ -39,6 +44,8 @@ class Constraints(BaseModel):
     travel: list[Literal[tuple(TRAVEL_MODES)]] | None = Field(default=None, max_length=len(TRAVEL_MODES))  # type: ignore[valid-type]
     origin: Point | None = None
     dest: Point | None = None
+    # Every stop after the start, in order, when the brief describes a route ("Vizag by bike, then Araku by car").
+    stops: list[Stop] | None = Field(default=None, max_length=8)
 
 
 class PlanIn(BaseModel):

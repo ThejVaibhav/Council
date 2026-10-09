@@ -23,7 +23,7 @@ export function UserMessage({ request, author }) {
     c.budget && (/^\d+(\s*INR)?$/i.test(String(c.budget).trim()) ? `₹${Number(String(c.budget).replace(/\D/g, '')).toLocaleString('en-IN')}` : `₹${String(c.budget).replace(/\s*INR$/i, '')}`),
     c.headcount && `${c.headcount} people`,
     c.dates,
-    c.location && c.destination ? `${c.location} → ${c.destination}` : c.location,
+    c.stops?.length ? [c.location ?? c.origin?.label, ...c.stops.map((st) => st.label)].filter(Boolean).join(' → ') : c.location && c.destination ? `${c.location} → ${c.destination}` : c.location,
     ...(c.travel ?? []).map((t) => TRAVEL.find((x) => x.id === t)?.label),
   ].filter(Boolean)
   return (
