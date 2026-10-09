@@ -23,7 +23,8 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        # Render passes a bare host ("council-web.onrender.com"); browsers send a full origin.
+        return [o if o.startswith("http") else f"https://{o}" for o in (x.strip() for x in self.cors_origins.split(",")) if o]
 
 
 @lru_cache

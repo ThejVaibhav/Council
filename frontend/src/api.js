@@ -4,7 +4,9 @@ import { simulateDebate } from './demo'
 import { streamDebate } from './sse'
 
 export const DEMO = import.meta.env.VITE_DEMO === '1'
-const API_BASE = import.meta.env.VITE_API_BASE || '/api'
+const RAW_API = import.meta.env.VITE_API_BASE || '/api'
+// Render hands over a bare host for the API; make it a full URL.
+const API_BASE = /^(https?:)?\/|^\//.test(RAW_API) ? RAW_API : `https://${RAW_API}`
 const TOKEN_KEY = 'council.token'
 
 const store = {
