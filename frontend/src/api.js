@@ -4,9 +4,12 @@ import { simulateDebate } from './demo'
 import { streamDebate } from './sse'
 
 export const DEMO = import.meta.env.VITE_DEMO === '1'
-const RAW_API = import.meta.env.VITE_API_BASE || '/api'
-// Render hands over a bare host for the API; make it a full URL.
-const API_BASE = /^(https?:)?\/|^\//.test(RAW_API) ? RAW_API : `https://${RAW_API}`
+// Default: the API lives on the same site under /api (the single Render service serves both).
+// VITE_API_BASE is only for hosting the frontend elsewhere, and must be a public URL. A bare internal
+// hostname (what Render's fromService hands over, e.g. "council-api-x1y2") is unreachable from a browser,
+// so it is ignored rather than breaking every request.
+const RAW_API = (import.meta.env.VITE_API_BASE || '').trim().replace(/\/$/, '')
+const API_BASE = /^https?:\/\//.test(RAW_API) || RAW_API.startsWith('/') ? RAW_API : RAW_API.includes('.') ? `https://${RAW_API}` : '/api'
 const TOKEN_KEY = 'council.token'
 
 const store = {
@@ -49,6 +52,10 @@ function httpApi() {
     } catch {
       throw new ApiError(0, 'Could not reach the Council server. It may be waking up after a quiet spell, so wait a few seconds and try again.')
     }
+    if (!(res.headers.get('content-type') || '').includes('application/json')) {
+      // Got a web page instead of the API: this copy of the site is not connected to a Council server.
+      throw new ApiError(res.status || 0, res.status >= 500 ? `The Council server is starting or restarting (HTTP ${res.status}). Try again in a minute.` : 'This copy of the site is not connected to the Council server. Open the address of the "council" service on Render.')
+    }
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
       const detail = typeof data.detail === 'string' ? data.detail : data.detail?.[0]?.msg
@@ -70,7 +77,7 @@ function httpApi() {
       const data = await call('POST', '/auth/google', payload)
       return { ...signedIn(data), is_new: data.is_new }
     },
-    config: () => call('GET', '/config').catch(() => ({})),
+    config: () => call('GET', '/config'),
     logout: async () => {
       try { await call('POST', '/auth/logout') } catch { /* already signed out */ }
       token = null

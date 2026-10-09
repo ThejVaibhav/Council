@@ -32,7 +32,8 @@ function GoogleLogo() {
 
 // Our own Google button: opens Google's account picker in a popup, and offers One Tap to returning users.
 function useGoogle(onGoogle, enabled) {
-  const [state, setState] = useState(enabled ? 'loading' : 'off') // loading | ready | off
+  const [state, setState] = useState(enabled ? 'loading' : 'off') // loading | ready | off | unreachable
+  const [reason, setReason] = useState('')
   const tokenClient = useRef(null)
   const cb = useRef(onGoogle)
   useEffect(() => {
@@ -59,6 +60,10 @@ function useGoogle(onGoogle, enabled) {
       window.google.accounts.id.initialize({ client_id: id, callback: (r) => cb.current({ credential: r.credential }), auto_select: true, cancel_on_tap_outside: true })
       window.google.accounts.id.prompt()
       setState('ready')
+    }, (e) => {
+      if (!live) return
+      setReason(e.message)
+      setState('unreachable')
     })
     return () => {
       live = false
@@ -66,7 +71,7 @@ function useGoogle(onGoogle, enabled) {
   }, [enabled])
 
   const start = () => tokenClient.current?.requestAccessToken({ prompt: 'select_account' })
-  return { state, start }
+  return { state, start, reason }
 }
 
 const PERKS = [
@@ -98,6 +103,7 @@ export default function Auth({ onSignup, onLogin, onGoogle, busy, error, demo, j
     if (google.state === 'ready') google.start()
     else if (demo) setNote('Google sign-in works in the full app. In this preview, use a username instead.')
     else if (google.state === 'loading') setNote('Connecting to Google, try again in a second.')
+    else if (google.state === 'unreachable') setNote(google.reason)
     else setNote('Google sign-in is not switched on for this server yet. Use a username and password for now.')
   }
 
