@@ -7,8 +7,8 @@ services:
     plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt
-    preDeployCommand: python -m scripts.migrate
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # Free instances have no pre-deploy step, so migrations run at start (they skip what is already applied).
+    startCommand: python -m scripts.migrate && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
