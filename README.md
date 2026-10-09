@@ -2,25 +2,48 @@
 
 A multi agent planning tool that makes AI deliberation visible. Instead of one model giving one answer, three specialist agents argue out a real decision, a weekend trip, a dinner plan, a group budget call, in front of the user, then a moderator agent merges their positions into a final plan with the trade offs stated out loud.
 
-## Why this project
+Built with FastAPI, PostgreSQL, React and Google Gemini, using a hand-rolled async orchestration loop with no agent framework.
 
-Most consumer AI tools hide the reasoning and show only the output. Council does the opposite. The product is the argument, not just the answer. That is also the right technical story for a portfolio piece, since it demonstrates actual multi agent orchestration, structured agent to agent communication, and model selection per role, not a single prompt wrapped in a UI.
+## Features
 
-## Document index
+- **Two-round debate.** Budget, Logistics and Vibe propose in parallel, then react to each other; the Moderator makes the call and logs who won each trade-off.
+- **Structured output.** Every agent turn and the final plan are validated against Pydantic schemas.
+- **Live, shared plans.** The debate streams over Server-Sent Events; friends in a plan watch the same debate, replayed in order.
+- **Accounts and characters.** Retro-styled characters dressed for each scene, pets, friends and invite links.
+- **Journeys and maps.** Routes split by travel mode on free OpenStreetMap services, as an animated journey or a live map.
+- **Share the decision.** A story-style recap, a quick take or an image card, plus a public read-only recap link.
 
-PRD.md, the product scope, the user, what is in and out for the MVP.
+## Repository layout
 
-ARCHITECTURE.md, the system design, the orchestration loop, model choice per agent, streaming approach.
+```
+council/
+├── backend/                FastAPI service
+│   ├── app/                API, orchestration loop, agents, LLM client, accounts, shared plans
+│   ├── migrations/         SQL migrations, applied in order by scripts/migrate.py
+│   ├── scripts/            migrate, try_budget, run_scenarios
+│   ├── tests/              pytest suite (real Postgres, model calls stubbed)
+│   └── requirements.txt
+├── frontend/               React + Vite single-page app
+│   ├── src/components/     pages and UI (planner, debate, verdict, share sheet, journey)
+│   ├── src/components/art/ SVG characters, scenes, vehicles, maps
+│   ├── src/hooks/          debate stream and journey hooks
+│   └── src/*.js            API client, scenes, story writer, share card, geo helpers
+├── docs/                   product, architecture, data model and build plan
+├── AGENTS.md               the four agents' prompts and the debate protocol
+├── docker-compose.yml      local Postgres
+├── render.yaml             one-click Render deploy (API, database and site)
+└── .github/workflows/      CI
+```
 
-AGENTS.md, the four agent personas, their system prompts, and the debate protocol.
+## Documentation
 
-DATA_MODEL.md, the database schema.
-
-BUILD_PLAN.md, the phased build order for Claude Code to execute against.
-
-## How to use this with Claude Code
-
-Point Claude Code at BUILD_PLAN.md first and ask it to execute Phase 0, then proceed phase by phase, referencing ARCHITECTURE.md and AGENTS.md as it builds each component. Do not ask it to build everything in one shot, the phased order exists because each phase should be runnable and demoable before the next one starts.
+| Document | What it covers |
+| --- | --- |
+| [docs/PRD.md](docs/PRD.md) | Product scope, the user, what is in and out |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, orchestration loop, models, streaming, sharing, maps |
+| [AGENTS.md](AGENTS.md) | The four agent personas, system prompts and debate protocol |
+| [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | Database schema |
+| [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md) | The phased build order |
 
 ## Local development
 
@@ -99,7 +122,7 @@ Things only you can do, in order:
 2. Locally: `docker compose up -d db`, put the new key in `backend/.env` (copy from `.env.example`), run the migration.
 3. Run `python -m scripts.try_budget`, then `python -m scripts.run_scenarios`. If a model name is rejected, set the correct ID in `SPECIALIST_MODEL` / `MODERATOR_MODEL`.
 4. Open the app (`npm run dev`) and run the three demo scenarios in the browser.
-5. Deploy: create the Render blueprint from `render.yaml`, set `GEMINI_API_KEY` and `CORS_ORIGINS`; import `frontend/` into Vercel with `VITE_API_BASE` set to the Render URL; then set `CORS_ORIGINS` to the Vercel URL.
+5. Deploy: on Render, New → Blueprint, pick this repo, paste `GEMINI_API_KEY`; the API, database and site are created and wired together.
 6. Record the screen capture of a full session for the LinkedIn post.
 
 ## Deploy

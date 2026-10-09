@@ -1,4 +1,4 @@
-// Example plans from PRD.md, plus a beach weekend.
+// Example plans from docs/PRD.md, plus a beach weekend.
 export const SCENARIOS = [
   {
     label: 'Hills weekend',
