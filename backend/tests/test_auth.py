@@ -46,3 +46,16 @@ def test_config_and_api_prefix():
         assert "google_client_id" in c.get("/config").json()
         assert c.get("/api/config").json() == c.get("/config").json()
         assert c.get("/api/health").status_code == 200
+
+
+def test_google_access_token_flow(monkeypatch):
+    sub, email = uuid.uuid4().hex, f"a{uuid.uuid4().hex[:8]}@gmail.com"
+
+    async def verify(token):
+        return {"sub": sub, "email": email, "email_verified": True, "given_name": "Sam"}
+
+    monkeypatch.setattr(users, "verify_google_access", verify)
+    with TestClient(app) as c:
+        r = c.post("/auth/google", json={"access_token": "y" * 40}).json()
+        assert r["is_new"] is True and r["user"]["display_name"] == "Sam"
+        assert c.post("/auth/google", json={}).status_code == 422

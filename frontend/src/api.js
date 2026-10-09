@@ -65,8 +65,9 @@ function httpApi() {
     hasSession: () => Boolean(token),
     signup: async (body) => signedIn(await call('POST', '/auth/signup', body)),
     login: async (body) => signedIn(await call('POST', '/auth/login', body)),
-    google: async (credential) => {
-      const data = await call('POST', '/auth/google', { credential })
+    // payload is { credential } (One Tap ID token) or { access_token } (Google button popup)
+    google: async (payload) => {
+      const data = await call('POST', '/auth/google', payload)
       return { ...signedIn(data), is_new: data.is_new }
     },
     config: () => call('GET', '/config').catch(() => ({})),

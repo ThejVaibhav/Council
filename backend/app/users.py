@@ -123,7 +123,9 @@ async def public_config():
 
 
 class GoogleIn(BaseModel):
-    credential: str = Field(min_length=20, max_length=4096)
+    # Either an ID token (One Tap) or an OAuth access token (the Google button popup).
+    credential: str | None = Field(default=None, min_length=20, max_length=4096)
+    access_token: str | None = Field(default=None, min_length=20, max_length=4096)
 
 
 async def verify_google(credential: str) -> dict:
@@ -141,6 +143,25 @@ async def verify_google(credential: str) -> dict:
     return claims
 
 
+async def verify_google_access(token: str) -> dict:
+    """Checks an OAuth access token was issued to this app, then reads the profile it grants."""
+    client_id = get_settings().google_client_id
+    if not client_id:
+        raise HTTPException(503, "Google sign-in is not set up on this server.")
+    async with httpx.AsyncClient(timeout=8) as client:
+        info = await client.get("https://oauth2.googleapis.com/tokeninfo", params={"access_token": token})
+        claims = info.json() if info.status_code == 200 else {}
+        if client_id not in (claims.get("aud"), claims.get("azp")):
+            raise HTTPException(401, "Google sign-in could not be verified. Try again.")
+        prof = await client.get("https://openidconnect.googleapis.com/v1/userinfo", headers={"Authorization": f"Bearer {token}"})
+    profile = prof.json() if prof.status_code == 200 else {}
+    if not profile.get("sub") or profile.get("sub") != claims.get("sub") or not profile.get("email"):
+        raise HTTPException(401, "Google sign-in could not be verified. Try again.")
+    if str(profile.get("email_verified")).lower() != "true":
+        raise HTTPException(401, "Your Google email is not verified.")
+    return profile
+
+
 async def _free_username(base: str) -> str:
     base = re.sub(r"[^a-z0-9_.]", "", base.lower())[:16] or "traveller"
     base = base if len(base) >= 3 else f"{base}_go"
@@ -155,7 +176,12 @@ async def _free_username(base: str) -> str:
 @router.post("/auth/google")
 async def google_sign_in(body: GoogleIn):
     """Signs in with Google, creating the account the first time and linking it to an existing email."""
-    claims = await verify_google(body.credential)
+    if body.credential:
+        claims = await verify_google(body.credential)
+    elif body.access_token:
+        claims = await verify_google_access(body.access_token)
+    else:
+        raise HTTPException(422, "Missing Google credential.")
     sub, email = claims["sub"], claims["email"].strip().lower()
     pool = db.get_pool()
     row = await pool.fetchrow(f"SELECT {PUBLIC}, email FROM users WHERE google_sub = $1", sub)
