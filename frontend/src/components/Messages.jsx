@@ -1,4 +1,6 @@
 import { motion } from 'motion/react'
+import { ChevronDown } from 'lucide-react'
+import { useState } from 'react'
 import { AGENTS, STANCE_LABEL, formatCost } from '../agents'
 import { TRAVEL } from '../avatarOptions'
 import AgentAvatar from './AgentAvatar'
@@ -73,7 +75,10 @@ export function MissingMessage({ item }) {
       <div className="msg-col">
         <span className={`msg-name t-${item.agent}`}>{AGENTS[item.agent].name}</span>
         <div className="bubble bubble-missing">
-          Didn't reply this round ({item.error}). The council carried on without them.
+          {item.reason === 'timeout' || /timed out|timeout/i.test(item.error ?? '')
+            ? `Timed out in round ${item.round} and was left out of this round.`
+            : `Couldn't answer in round ${item.round} and was left out of this round.`}{' '}
+          {item.round === 2 ? 'Their view is not counted in the final decision.' : 'The council carried on without them.'}
         </div>
       </div>
     </motion.div>
@@ -98,5 +103,51 @@ export function TypingMessage({ agent }) {
         </div>
       </div>
     </motion.div>
+  )
+}
+
+/**
+ * One round of the debate. While the debate runs it shows every message; once there is a decision it folds
+ * into a one-line pitch per agent that can be opened, so the decision stays the first thing you read.
+ */
+export function RoundGroup({ label, items, collapsible }) {
+  // Remounted (by key) when the decision lands, so it folds itself at that moment.
+  const [open, setOpen] = useState(!collapsible)
+  const order = (a) => ['budget', 'logistics', 'vibe'].indexOf(a.agent)
+  const turns = items.filter((i) => i.kind === 'turn').sort((a, b) => order(a) - order(b))
+  const missing = items.filter((i) => i.kind === 'missing')
+  return (
+    <section className={`round-group ${open ? 'is-open' : 'is-folded'}`} aria-label={label}>
+      {collapsible ? (
+        <button type="button" className="round-toggle" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          <span className="round-toggle-label">{label}</span>
+          <span className="round-toggle-meta">{turns.length} {turns.length === 1 ? 'reply' : 'replies'}{missing.length ? `, ${missing.length} missing` : ''}</span>
+          <ChevronDown size={16} className={open ? 'is-open' : ''} />
+        </button>
+      ) : (
+        <SystemLine>{label}</SystemLine>
+      )}
+      {!open && (
+        <ul className="round-digest">
+          {turns.map((t) => (
+            <li key={t.id ?? t.agent}>
+              <AgentAvatar agent={t.agent} size="xs" />
+              <b className={`t-${t.agent}`}>{AGENTS[t.agent].name}</b>
+              <span className="digest-title">{t.option_title}</span>
+              {t.estimated_cost != null && <span className="digest-cost">{formatCost(t.estimated_cost)}</span>}
+              <span className={`digest-stance s-${t.stance}`}>{STANCE_LABEL[t.stance] ?? t.stance}</span>
+            </li>
+          ))}
+          {missing.map((m) => (
+            <li key={`m-${m.agent}`} className="is-missing">
+              <AgentAvatar agent={m.agent} size="xs" />
+              <b className={`t-${m.agent}`}>{AGENTS[m.agent].name}</b>
+              <span className="digest-title">{m.reason === 'timeout' || /timed out|timeout/i.test(m.error ?? '') ? 'timed out' : 'did not answer'}, not counted</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {open && items.map((it, i) => (it.kind === 'missing' ? <MissingMessage key={`m${i}`} item={it} /> : <AgentMessage key={it.id ?? i} turn={it} />))}
+    </section>
   )
 }

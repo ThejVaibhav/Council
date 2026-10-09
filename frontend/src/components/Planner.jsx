@@ -2,7 +2,10 @@ import { AnimatePresence, motion } from 'motion/react'
 import { ArrowRight, Bike, Bus, Car, CarTaxiFront, Check, ChevronDown, Footprints, IndianRupee, KeyRound, LoaderCircle, LocateFixed, MapPin, Minus, Plane, Plus, TrainFront, Wand2 } from 'lucide-react'
 import { TRAVEL } from '../avatarOptions'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { budgetInfo } from '../agents'
 import { cleanConstraints } from '../constraints'
+
+const fmtINR = (n) => Math.round(n).toLocaleString('en-IN')
 import { SCENARIOS } from '../scenarios'
 import { SCENES, SCENE_IDS, detectPeople } from '../scenes'
 import Crew, { Portrait } from './art/Crew'
@@ -172,11 +175,14 @@ export default function Planner({ me, friends = [], draft, setDraft, sceneId, sc
   // Typing a new starting point drops the exact location from the device.
   const setField = (k) => (e) => setDraft((d) => ({ ...d, ...(k === 'location' ? { origin: null } : {}), constraints: { ...d.constraints, [k]: e.target.value } }))
   const ready = draft.brief.trim().length >= 10
+  const basis = draft.budgetBasis ?? 'total'
+  const budget = budgetInfo({ budget: draft.constraints.budget, headcount: people, budget_basis: basis })
 
   const send = (e) => {
     e?.preventDefault()
     if (!ready) return
     const constraints = cleanConstraints({ ...draft.constraints, headcount: String(people) }) ?? {}
+    if (constraints.budget) constraints.budget_basis = basis
     if (draft.travel.length) constraints.travel = draft.travel
     // Pin both ends so everyone in the plan sees exactly this route.
     if (journey.status === 'ready') {
@@ -184,8 +190,9 @@ export default function Planner({ me, friends = [], draft, setDraft, sceneId, sc
       constraints.origin = pinOf(journey.from)
       constraints.dest = pinOf(journey.to)
       if (!constraints.location) constraints.location = constraints.origin.label
-      if (tripStops.length && journey.points?.length === tripStops.length + 1)
-        constraints.stops = journey.points.slice(1).map((p, i) => ({ ...pinOf(p), ...(tripStops[i].mode ? { mode: tripStops[i].mode } : {}) }))
+      // Only the stops that passed the route check travel with the plan.
+      if (tripStops.length && journey.points?.length > 1)
+        constraints.stops = journey.points.slice(1).map((p) => ({ ...pinOf(p), ...(p.mode ? { mode: p.mode } : {}) }))
       if (!constraints.destination) constraints.destination = toText
     } else if (draft.origin) constraints.origin = draft.origin
     onSend({ brief: draft.brief.trim(), constraints, scene: sceneId, member_ids: draft.friendIds })
@@ -279,10 +286,19 @@ export default function Planner({ me, friends = [], draft, setDraft, sceneId, sc
         />
 
         <div className="details">
-          <label className="detail" htmlFor="c-budget">
-            <IndianRupee size={15} />
-            <input id="c-budget" value={draft.constraints.budget} onChange={setField('budget')} placeholder="Budget" />
-          </label>
+          <div className="detail detail-budget">
+            <label htmlFor="c-budget" className="detail-budget-field">
+              <IndianRupee size={15} />
+              <input id="c-budget" inputMode="numeric" value={draft.constraints.budget} onChange={setField('budget')} placeholder="Budget" />
+            </label>
+            <div className="basis" role="radiogroup" aria-label="Budget is">
+              {[['total', 'Total'], ['per_person', 'Per person']].map(([id, label]) => (
+                <button type="button" key={id} role="radio" aria-checked={basis === id} className={basis === id ? 'is-on' : ''} onClick={() => setDraft((d) => ({ ...d, budgetBasis: id }))}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
           <DatePicker id="c-dates" value={draft.constraints.dates} onChange={(v) => setDraft((d) => ({ ...d, constraints: { ...d.constraints, dates: v } }))} />
           <label className={`detail detail-locate ${draft.origin ? 'is-pinned' : ''}`} htmlFor="c-location">
             <MapPin size={15} />
@@ -296,6 +312,13 @@ export default function Planner({ me, friends = [], draft, setDraft, sceneId, sc
             <input id="c-destination" value={draft.constraints.destination ?? ''} onChange={setField('destination')} placeholder={!typedTo && toText ? `Going to: ${toText}` : 'Going to (optional)'} />
           </label>
         </div>
+        {budget && (
+          <p className="budget-line" aria-live="polite">
+            {budget.basis === 'per_person'
+              ? <>₹{fmtINR(budget.perPerson)} each × {budget.people} {budget.people === 1 ? 'person' : 'people'} = <b>₹{fmtINR(budget.total)} for the group</b></>
+              : <><b>₹{fmtINR(budget.total)} for the group</b>{budget.people > 1 ? <> · about ₹{fmtINR(budget.perPerson)} each for {budget.people} people</> : null}</>}
+          </p>
+        )}
 
         {locError && <p className="hint small loc-error" role="status">{locError}</p>}
         <AnimatePresence initial={false}>

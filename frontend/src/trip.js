@@ -23,6 +23,14 @@ const NOT_PLACES = new Set(
     'mountains mountain weekend friends family airport station bus train car bike cab flight day night evening morning ' +
     'which where what somewhere nearby back them all both each every some any one two three four five').split(' '),
 )
+// Things people do or stay at, not places on a map: "visit waterfalls", "to coffee plantations", "to a resort".
+const NOT_PLACE_NOUNS = new Set(
+  ('waterfall waterfalls falls plantation plantations estate estates viewpoint viewpoints view views resort resorts hotel hotels ' +
+    'homestay homestays hostel stay temple temples church mosque beach beaches fort forts lake lakes park parks market markets ' +
+    'cafe cafes restaurant restaurants coffee tea spice scenic nature sunset sunrise trek treks trekking hike hikes hiking camp ' +
+    'camping campsite spot spots place places city town village mall museum zoo dam river forest jungle wildlife safari ' +
+    'adventure sightseeing shopping food party trip tour holiday vacation getaway outing picnic').split(' '),
+)
 const STOP_AT = /\s+(?:and|then|by|via|from|to|on|for|with|in|at|using|use|after|before|next|tomorrow|today|this|next|i|we|it|so|but|or|&)\b|[,.;!?)(]|$/i
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -39,7 +47,8 @@ function placeMentions(text) {
       while ((m = re.exec(lower))) out.push({ name: p.name, key: p.name, at: m.index, end: m.index + k.length, known: true })
     }
   }
-  const re = /\b(to|from|via|till|until|towards|reach|reaching|visit|visiting|explore|exploring)\s+([a-z][a-z'-]+(?:\s+[a-z][a-z'-]+){0,2})/gi
+  // Unknown names only count after words that point at a place; "visit"/"explore" usually name an activity.
+  const re = /\b(to|from|via|till|until|towards|reach|reaching)\s+([a-z][a-z'-]+(?:\s+[a-z][a-z'-]+){0,2})/gi
   let m
   while ((m = re.exec(text))) {
     const start = m.index + m[0].length - m[2].length
@@ -47,6 +56,7 @@ function placeMentions(text) {
     const raw = m[2].split(STOP_AT)[0].trim()
     const first = raw.split(/\s+/)[0]?.toLowerCase()
     if (!raw || raw.length < 3 || NOT_PLACES.has(first)) continue
+    if (raw.toLowerCase().split(/\s+/).some((w) => NOT_PLACE_NOUNS.has(w))) continue
     if (out.some((o) => o.at <= start && start < o.end)) continue // already a known place
     out.push({ name: titleCase(raw), key: raw.toLowerCase(), at: start, end: start + raw.length, known: false, from: m[1].toLowerCase() === 'from' })
   }

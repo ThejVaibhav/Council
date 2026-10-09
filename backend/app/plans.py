@@ -44,6 +44,7 @@ class Constraints(BaseModel):
     travel: list[Literal[tuple(TRAVEL_MODES)]] | None = Field(default=None, max_length=len(TRAVEL_MODES))  # type: ignore[valid-type]
     origin: Point | None = None
     dest: Point | None = None
+    budget_basis: Literal["total", "per_person"] | None = None
     # Every stop after the start, in order, when the brief describes a route ("Vizag by bike, then Araku by car").
     stops: list[Stop] | None = Field(default=None, max_length=8)
 

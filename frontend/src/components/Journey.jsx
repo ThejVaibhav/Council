@@ -21,6 +21,16 @@ export default function Journey({ journey: j, fromText, toText, compact = false 
         <div className="journey-skeleton"><Route size={18} /> Finding the way from {fromText || 'your location'} to {toText}…</div>
       </div>
     )
+  if (j.status === 'invalid')
+    return (
+      <div className={`journey ${compact ? 'is-compact' : ''}`}>
+        <div className="journey-problems" role="alert">
+          <b>This route doesn't add up, so it isn't drawn.</b>
+          <ul>{j.problems.map((p) => <li key={p.text}><b>{p.text}</b> {p.reason}.</li>)}</ul>
+          <span>Check the place names, or type the stops into Starting from and Going to.</span>
+        </div>
+      </div>
+    )
   if (j.status === 'missing' || !j.legs)
     return (
       <div className={`journey ${compact ? 'is-compact' : ''}`}>
@@ -49,6 +59,11 @@ export default function Journey({ journey: j, fromText, toText, compact = false 
         </div>
       </div>
 
+      {j.problems?.length > 0 && (
+        <div className="journey-problems is-soft" role="status">
+          <ul>{j.problems.map((p) => <li key={p.text}><b>{p.text}</b> {p.reason}.</li>)}</ul>
+        </div>
+      )}
       <ErrorBoundary resetKey={legs.map((l) => l.mode).join('|')} fallback={<p className="journey-note">The route picture couldn't be drawn. The legs below are still right.</p>}>
         <div className="journey-stage">
           <JourneyStrip legs={legs} fromLabel={from.label} toLabel={to.label} stopLabels={legs.slice(0, -1).map((l, i) => (j.points && legs[i + 1].stop !== l.stop ? j.points[legs[i + 1].stop]?.label : null))} />

@@ -86,6 +86,15 @@ Checks, from `backend/`:
 - `.venv/bin/python -m scripts.try_budget` runs the Budget agent once against the real Gemini API.
 - `.venv/bin/python -m scripts.run_scenarios` runs the three PRD demo scenarios end to end against the real API and prints each transcript and its duration.
 
+## How a plan is checked
+
+Nothing the council says is shown as a decision until it passes plain checks, with no model involved:
+
+- **Route, while typing** (`frontend/src/trip.js`, `geo.js`): only real place names become stops (activities like "visit waterfalls" never do), every place is looked up in the start's country, and a stop in another country, thousands of km away, or too far for one leg by the chosen mode is dropped with a visible reason. Only stops that pass are sent with the plan.
+- **After the debate** (`backend/app/validation.py`): geography of the pinned route, travel time against the trip length, the total against the group budget (total or per person), the cost breakdown adding up, missing information, and which agents answered. The result is `verified`, `needs review` or `not verified`, stored with the plan and shown on the decision, along with who timed out and whether the outcome was unanimous or a majority.
+
+Tests: `cd backend && pytest` and `cd frontend && npm test`.
+
 ## API
 
 - `POST /sessions/stream` with `{"brief": "...", "constraints": {...}}` streams Server Sent Events: `session`, `round_start`, `turn` (one per specialist turn), `agent_error` (an agent failed or timed out, the debate continues), `moderator_start`, `final_plan`, then `done` or `error`.

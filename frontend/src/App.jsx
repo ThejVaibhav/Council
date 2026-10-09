@@ -186,6 +186,7 @@ export default function App() {
       people: c.headcount ?? 1,
       friendIds: (debate.plan?.members ?? []).filter((m) => m.username !== user.username).map((m) => m.id),
       travel: c.travel ?? [],
+      budgetBasis: c.budget_basis ?? 'total',
       travelAuto: Boolean(c.stops?.length) || !c.travel?.length,
       origin: c.origin && c.origin.label === c.location ? c.origin : null,
       active: null,

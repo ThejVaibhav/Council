@@ -49,8 +49,11 @@ async function getJSON(url, ms = 6000, signal) {
 
 const tidy = (s) => s?.split(',').map((x) => x.trim()).filter(Boolean)
 
-// A short, human label from a Nominatim result: "Indiranagar, Bengaluru".
+// A short, human label from a Nominatim result. A search for a town is labelled with the town
+// ("Bengaluru"), not whichever suburb the point happens to fall in; street-level results get "Indiranagar, Bengaluru".
+const AREA_TYPES = new Set(['city', 'town', 'village', 'municipality', 'county', 'state_district', 'state', 'region', 'district', 'hamlet', 'island', 'administrative'])
 function labelOf(r, fallback) {
+  if (r.name && AREA_TYPES.has(r.addresstype ?? r.type)) return r.name
   const a = r.address ?? {}
   const local = a.neighbourhood || a.suburb || a.village || a.hamlet || a.town
   const city = a.city || a.town || a.county || a.state_district
@@ -59,27 +62,65 @@ function labelOf(r, fallback) {
   return tidy(r.display_name)?.slice(0, 2).join(', ') || fallback
 }
 
-/** Place for free text. Resolves to { lat, lon, name, label, source } or null. */
-export async function geocode(text, signal) {
+/**
+ * Place for free text. Resolves to { lat, lon, name, label, country, source } or null.
+ * `near` ({ country }) keeps the search inside the trip's country, so "Waterfalls" can never become Burkina Faso.
+ */
+export async function geocode(text, signal, near = null) {
   const q = text?.trim()
   if (!q || q.length < 2) return null
-  const key = `g:${q.toLowerCase()}`
+  const cc = near?.country ? String(near.country).toLowerCase() : ''
+  const key = `g:${cc}:${q.toLowerCase()}`
   const hit = recall(key)
   if (hit !== undefined) return hit
   let out = null
-  try {
-    const rows = await getJSON(`${NOMINATIM}/search?format=jsonv2&addressdetails=1&limit=1&accept-language=en&q=${encodeURIComponent(q)}`, 6000, signal)
-    if (rows?.[0]) out = { lat: Number(rows[0].lat), lon: Number(rows[0].lon), name: tidy(q)[0], label: labelOf(rows[0], q), source: 'osm' }
-  } catch (e) {
-    if (e.name === 'AbortError' && signal?.aborted) throw e
+  // The built-in list is curated, so it wins for the names it knows.
+  const known = findPlace(q)
+  if (known && known.name.toLowerCase().startsWith(q.toLowerCase().split(/[ ,]/)[0])) {
+    out = { lat: known.lat, lon: known.lon, name: known.name, label: known.name, country: 'in', source: 'built-in' }
   }
   if (!out) {
-    const p = findPlace(q)
-    if (p) out = { lat: p.lat, lon: p.lon, name: p.name, label: p.name, source: 'built-in' }
+    try {
+      const rows = await getJSON(`${NOMINATIM}/search?format=jsonv2&addressdetails=1&limit=1&accept-language=en${cc ? `&countrycodes=${cc}` : ''}&q=${encodeURIComponent(q)}`, 6000, signal)
+      if (rows?.[0]) out = { lat: Number(rows[0].lat), lon: Number(rows[0].lon), name: tidy(q)[0], label: labelOf(rows[0], q), country: rows[0].address?.country_code ?? null, source: 'osm' }
+    } catch (e) {
+      if (e.name === 'AbortError' && signal?.aborted) throw e
+    }
   }
+  if (!out && known) out = { lat: known.lat, lon: known.lon, name: known.name, label: known.name, country: 'in', source: 'built-in' }
   if (out?.source === 'osm') remember(key, out)
   else memo.set(key, out)
   return out
+}
+
+// ---------- route sanity ----------
+// The same limits the server applies after the debate, so a bad match is caught before anyone sees it.
+export const LIMITS = { anyHopKm: 4500, roadHopKm: 3000, roadFactor: 1.3 }
+
+/**
+ * Checks consecutive points and drops the ones that cannot be right.
+ * points[0] is the start; each later point has `text` (what was asked for) and `mode` (how it is reached).
+ * Returns { points, problems: [{ text, reason }] }.
+ */
+export function checkRoute(points, modes = []) {
+  const kept = [points[0]]
+  const problems = []
+  for (const p of points.slice(1)) {
+    const prev = kept[kept.length - 1]
+    const km = distanceKm(prev, p)
+    const flying = p.mode === 'flight' || (!p.mode && modes.includes('flight'))
+    const name = p.text || p.label
+    if (prev.country && p.country && prev.country !== p.country) {
+      problems.push({ text: name, reason: `matched a place in another country (${p.label}), so it was left out` })
+    } else if (km > LIMITS.anyHopKm) {
+      problems.push({ text: name, reason: `matched ${p.label}, about ${Math.round(km).toLocaleString('en-IN')} km away, so it was left out` })
+    } else if (!flying && p.mode !== 'train' && km * LIMITS.roadFactor > LIMITS.roadHopKm) {
+      problems.push({ text: name, reason: `is about ${Math.round(km * LIMITS.roadFactor).toLocaleString('en-IN')} km by road from ${prev.label}, too far for one leg by ${MODE_INFO[p.mode]?.label.toLowerCase() ?? 'road'}` })
+    } else {
+      kept.push(p)
+    }
+  }
+  return { points: kept, problems }
 }
 
 /** A name for coordinates from the device: "Koramangala, Bengaluru". */

@@ -25,10 +25,18 @@ class TradeOff(BaseModel):
     which_concern_won: str = Field(description="Which agent's concern won and why, one sentence.")
 
 
+class CostItem(BaseModel):
+    item: str = Field(description="What the money is for, e.g. fuel and tolls, stay, food, entry fees.")
+    amount: float = Field(description="Cost of this item for the whole group, in the brief's currency.")
+
+
 class FinalPlan(BaseModel):
     title: str
     description: str = Field(description="Concrete plan a user could act on immediately.")
-    estimated_cost: float | None = Field(description="Total estimated cost, or null if not applicable.")
+    estimated_cost: float | None = Field(description="Total estimated cost for the whole group, or null if not applicable.")
+    cost_breakdown: list[CostItem] | None = Field(
+        default=None, description="Line items for the whole group that add up to estimated_cost."
+    )
 
 
 class ModeratorSynthesis(BaseModel):

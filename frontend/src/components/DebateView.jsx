@@ -3,7 +3,8 @@ import { Pencil, Plus, RotateCcw, Share2, UserPlus } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ROUND_LABEL, chatStatus } from '../agents'
 import { DEMO, api } from '../api'
-import { AgentMessage, MissingMessage, SystemLine, TypingMessage, UserMessage } from './Messages'
+import { RoundGroup, SystemLine, TypingMessage, UserMessage } from './Messages'
+import { roundsOf } from '../council'
 import InvitePanel from './InvitePanel'
 import Crew from './art/Crew'
 import Verdict from './Verdict'
@@ -58,11 +59,9 @@ export default function DebateView({ debate, me, sceneId, title, onNew, onEdit, 
 
       <div className="thread">
         {request && <UserMessage request={request} author={owner && owner.username !== me.username ? owner.display_name : null} />}
-        {items.map((it, i) => {
-          if (it.kind === 'round') return <SystemLine key={`r${it.round}`}>{ROUND_LABEL[it.round]}</SystemLine>
-          if (it.kind === 'missing') return <MissingMessage key={`m${i}`} item={it} />
-          return <AgentMessage key={it.id} turn={it} />
-        })}
+        {roundsOf(items).map((g) => (
+          <RoundGroup key={`${g.round}-${Boolean(result)}`} label={ROUND_LABEL[g.round]} items={g.items} collapsible={Boolean(result)} />
+        ))}
         <AnimatePresence initial={false}>
           {pending.map((a) => (
             <TypingMessage key={`t-${a}`} agent={a} />

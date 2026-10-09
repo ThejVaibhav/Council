@@ -178,7 +178,11 @@ export function detectPeople(text) {
   const grouped = [...text.matchAll(new RegExp(`\\b${NUM}\\s+(${GROUP_NOUN})\\b`, 'gi'))].find((m) => !(toN(m[1]) < 2 && /of us/i.test(m[2])))
   const counted = grouped || text.match(new RegExp(`\\b(?:for|party of|group of)\\s+${NUM}\\b(?!\\s*(?:days?|nights?|hours?|hrs?|km|rupees|k\\b|pm|am))`, 'i'))
   if (counted) {
-    const n = toN(counted[1])
+    let n = toN(counted[1])
+    // "with 3 friends" / "me and 3 friends": the writer is going too, so the group is one bigger.
+    // "for three friends" and "we are six friends" already count everyone.
+    const before = text.slice(Math.max(0, counted.index - 14), counted.index).toLowerCase()
+    if (grouped && !/of us/i.test(counted[2]) && /\b(with|me and|and my|plus|along with)\s+(my\s+)?$/.test(before)) n += 1
     if (n >= 1 && n <= 20) return n
   }
   if (/\b(solo|alone|by myself|just me)\b/i.test(text)) return 1

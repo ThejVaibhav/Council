@@ -64,7 +64,7 @@ def test_stream_runs_full_debate_and_persists(stub_models):
         # round two saw round one; moderator saw the failure gap; constraints reached the agents
         r2_msgs = [m for a, m in stub_models if a != "moderator" and "Round two" in m]
         assert all("budget pick" in m and "vibe pick" in m for m in r2_msgs)
-        assert "budget: 8000" in stub_models[0][1]
+        assert "budget: 8,000 INR in total for the whole group of 3" in stub_models[0][1]
         assert "failed or timed out" in [m for a, m in stub_models if a == "moderator"][0]
 
         session_id = events[0][1]["session_id"]

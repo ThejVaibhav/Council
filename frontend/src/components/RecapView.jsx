@@ -5,7 +5,8 @@ import { ROUND_LABEL } from '../agents'
 import { api } from '../api'
 import { stateFromRecap } from '../hooks/useDebate'
 import Crew from './art/Crew'
-import { AgentMessage, MissingMessage, SystemLine, UserMessage } from './Messages'
+import { RoundGroup, SystemLine, UserMessage } from './Messages'
+import { roundsOf } from '../council'
 import Verdict from './Verdict'
 
 const dateOf = (iso) => {
@@ -79,11 +80,9 @@ export default function RecapView({ code, onScene, onStart, signedIn }) {
 
       <div className="thread">
         {state.request && <UserMessage request={state.request} author={owner?.display_name} />}
-        {state.items.map((it, i) => {
-          if (it.kind === 'round') return <SystemLine key={`r${it.round}`}>{ROUND_LABEL[it.round]}</SystemLine>
-          if (it.kind === 'missing') return <MissingMessage key={`m${i}`} item={it} />
-          return <AgentMessage key={it.id ?? i} turn={it} />
-        })}
+        {roundsOf(state.items).map((g) => (
+          <RoundGroup key={`${g.round}-${Boolean(state.result)}`} label={ROUND_LABEL[g.round]} items={g.items} collapsible={Boolean(state.result)} />
+        ))}
         {state.status === 'partial' && <SystemLine>The council was still debating when this was shared</SystemLine>}
         {state.result && (
           <Verdict

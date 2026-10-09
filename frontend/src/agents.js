@@ -30,16 +30,24 @@ export function chatStatus({ status, pending, items }) {
   return items.length ? 'Reading the replies…' : 'Starting…'
 }
 
-// Budget cap in rupees from the constraints, so the verdict can show how much of it the plan uses.
-export function budgetCap(constraints) {
+// The group's budget, worked out the same way as the server's check (app/validation.py):
+// { total, perPerson, basis: 'total' | 'per_person', people } in rupees, or null without a usable amount.
+export function budgetInfo(constraints) {
   if (!constraints?.budget) return null
   const raw = String(constraints.budget).toLowerCase().replace(/,/g, '')
-  const m = raw.match(/(\d+(\.\d+)?)\s*(k)?/)
+  const m = raw.match(/(\d+(?:\.\d+)?)\s*(k|lakh|l)?\b/)
   if (!m) return null
-  let n = parseFloat(m[1]) * (m[3] ? 1000 : 1)
-  if (/per\s*(person|head)|each/.test(raw)) {
-    if (!constraints.headcount) return null
-    n *= Number(constraints.headcount)
-  }
-  return n > 0 ? n : null
+  const amount = parseFloat(m[1]) * ({ k: 1000, lakh: 100000, l: 100000 }[m[2]] ?? 1)
+  if (!(amount > 0)) return null
+  const people = Math.max(1, Number(constraints.headcount) || 1)
+  const basis = ['total', 'per_person'].includes(constraints.budget_basis)
+    ? constraints.budget_basis
+    : /per\s*(person|head)|\beach\b|\/\s*person/.test(raw) ? 'per_person' : 'total'
+  const total = basis === 'per_person' ? amount * people : amount
+  return { total, perPerson: total / people, basis, people }
+}
+
+// Budget cap for the whole group, so the verdict can show how much of it the plan uses.
+export function budgetCap(constraints) {
+  return budgetInfo(constraints)?.total ?? null
 }

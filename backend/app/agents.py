@@ -83,7 +83,10 @@ def round_two_message(brief: str, agent: str, round_one: dict[str, SpecialistTur
 def moderator_message(brief: str, round_one: dict, round_two: dict) -> str:
     return (
         f"Brief:\n{brief}\n\nRound one transcript:\n{_format_turns(round_one)}\n\n"
-        f"Round two transcript:\n{_format_turns(round_two)}"
+        f"Round two transcript:\n{_format_turns(round_two)}\n\n"
+        "estimated_cost is the total for the whole group. Fill cost_breakdown with the line items (whole group) "
+        "that add up exactly to it. Only use places that are in the brief or are real stops on that route; if a "
+        "place in the brief looks wrong or unreachable, say so in the summary instead of planning around it."
     )
 
 

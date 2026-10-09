@@ -1,7 +1,9 @@
 import { motion } from 'motion/react'
-import { Share2 } from 'lucide-react'
-import { useMemo } from 'react'
-import { AGENTS, budgetCap, formatCost } from '../agents'
+import { AlertTriangle, CheckCircle2, ChevronDown, Info, Share2, ShieldCheck, XCircle } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { AGENTS, budgetInfo, formatCost } from '../agents'
+import { STATUS_TEXT, consensusLabel, participationFromItems } from '../council'
+import RichText from './RichText'
 import { TRAVEL } from '../avatarOptions'
 import { MODE_INFO, fmtKm } from '../geo'
 import { useJourney } from '../hooks/useJourney'
@@ -16,15 +18,85 @@ function winnerOf(text) {
   return AGENTS[first] && first !== 'moderator' ? first : null
 }
 
+const BRAND = {
+  verified: 'Council · verified decision',
+  needs_review: 'Council · decision, needs review',
+  not_verified: 'Council · draft, not verified',
+  unchecked: 'Council · decision',
+}
+
+const ICON = { error: XCircle, warn: AlertTriangle, ok: CheckCircle2, info: Info }
+
+/** What was checked before this plan was shown, who took part, and how much they agreed. */
+function Checks({ validation, participation }) {
+  const [open, setOpen] = useState(false)
+  const checks = validation?.checks ?? []
+  const problems = checks.filter((c) => c.level === 'error' || c.level === 'warn')
+  const rest = checks.filter((c) => c.level === 'ok' || c.level === 'info')
+  const status = validation?.status ?? 'unchecked'
+  const consensus = consensusLabel(participation)
+  const head = {
+    verified: { icon: ShieldCheck, text: 'Checked: the route, timings and budget add up.' },
+    needs_review: { icon: AlertTriangle, text: 'Mostly checks out, but look at these before you book.' },
+    not_verified: { icon: XCircle, text: 'Not a verified decision. Something in this plan does not add up.' },
+    unchecked: { icon: Info, text: 'This plan has not been checked automatically, so treat the numbers as a draft.' },
+  }[status]
+  const HeadIcon = head.icon
+  return (
+    <section className={`checks glass is-${status}`} aria-label="Plan checks">
+      <p className="checks-head"><HeadIcon size={18} /> <b>{head.text}</b></p>
+      {problems.length > 0 && (
+        <ul className="checks-list">
+          {problems.map((c, i) => {
+            const I = ICON[c.level]
+            return <li key={i} className={`is-${c.level}`}><I size={15} /> {c.message}</li>
+          })}
+        </ul>
+      )}
+      <div className="council-row">
+        {participation.agents.map((a) => (
+          <span key={a.agent} className={`who-chip is-${a.round2}`} title={`Round 1: ${STATUS_TEXT[a.round1]}, round 2: ${STATUS_TEXT[a.round2]}`}>
+            <AgentAvatar agent={a.agent} size="xs" /> {AGENTS[a.agent].name}
+            <em>{a.round2 === 'responded' ? (a.round1 === 'responded' ? 'both rounds' : 'round 2 only') : `${STATUS_TEXT[a.round2]} in round 2${a.round1 === 'responded' ? '' : ' and 1'}, not counted`}</em>
+          </span>
+        ))}
+        {consensus && <span className={`consensus is-${consensus.tone}`}>{consensus.text}</span>}
+      </div>
+      {rest.length > 0 && (
+        <>
+          <button type="button" className="checks-more" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+            {open ? 'Hide' : 'Show'} what was checked ({rest.length}) <ChevronDown size={14} className={open ? 'is-open' : ''} />
+          </button>
+          {open && (
+            <ul className="checks-list is-rest">
+              {rest.map((c, i) => {
+                const I = ICON[c.level]
+                return <li key={i} className={`is-${c.level}`}><I size={15} /> {c.message}</li>
+              })}
+            </ul>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+
 /**
  * The pinned decision: a boarding-pass ticket, the journey, the plan and who won what.
  * `items` and `people` feed the share message; `getLink` makes a public recap link.
  */
 export default function Verdict({ plan, brief, constraints, items = [], people = [], sceneId = 'everyday', getLink, sharing = false, onShare, onCloseShare }) {
   const cost = formatCost(plan.estimated_cost)
-  const cap = budgetCap(constraints)
+  const budget = budgetInfo(constraints)
+  const cap = budget?.total ?? null
   const share = cap && plan.estimated_cost != null ? plan.estimated_cost / cap : null
   const headcount = constraints?.headcount
+  const travellers = Math.max(1, Number(headcount) || 1)
+  const perPerson = plan.estimated_cost != null && travellers > 1 ? formatCost(Math.round(plan.estimated_cost / travellers)) : null
+  const validation = plan.validation ?? null
+  const status = validation?.status ?? 'unchecked'
+  const participation = validation?.participation ?? participationFromItems(items)
+  const breakdown = plan.cost_breakdown ?? []
 
   // Where to: the typed destination, or the first known place the plan itself names.
   const fromText = constraints?.origin?.label ?? constraints?.location ?? ''
@@ -48,8 +120,8 @@ export default function Verdict({ plan, brief, constraints, items = [], people =
       <div className="ticket">
         <div className="ticket-main">
           <div className="ticket-top">
-            <span className="ticket-brand">
-              <AgentAvatar agent="moderator" size="xs" /> Council · decision
+            <span className={`ticket-brand is-${status}`}>
+              <AgentAvatar agent="moderator" size="xs" /> {BRAND[status]}
             </span>
             <button type="button" className="btn btn-accent btn-sm" onClick={onShare}>
               <Share2 size={14} /> Share
@@ -76,19 +148,25 @@ export default function Verdict({ plan, brief, constraints, items = [], people =
           </dl>
         </div>
         <div className="ticket-stub">
-          <span className="stub-label">Estimated total</span>
+          <span className="stub-label">Estimated total{travellers > 1 ? ', whole group' : ''}</span>
           <span className="stub-num">{cost ?? 'n/a'}</span>
+          {perPerson && <span className="stub-per">about {perPerson} per person</span>}
           {share != null && (
             <>
               <div className={`budget-bar ${share > 1 ? 'is-over' : ''}`} role="img" aria-label={`${Math.round(share * 100)}% of the budget`}>
                 <motion.i initial={{ width: 0 }} animate={{ width: `${Math.min(share, 1) * 100}%` }} transition={{ duration: 1, delay: 0.4, ease: [0.22, 1, 0.36, 1] }} />
               </div>
-              <span className="stub-foot">{Math.round(share * 100)}% of {formatCost(cap)}</span>
+              <span className="stub-foot">
+                {Math.round(share * 100)}% of the {formatCost(cap)} group budget
+                {budget.basis === 'per_person' ? ` (${formatCost(budget.perPerson)} × ${budget.people})` : ''}
+              </span>
             </>
           )}
           <span className="barcode" aria-hidden="true" />
         </div>
       </div>
+
+      <Checks validation={validation} participation={participation} />
 
       {fromText && toText && journey.status !== 'idle' && (
         <div className="plan-detail glass">
@@ -99,7 +177,21 @@ export default function Verdict({ plan, brief, constraints, items = [], people =
 
       <div className="plan-detail glass">
         <span className="field-label">The plan</span>
-        <p>{plan.description}</p>
+        <RichText text={plan.description} />
+        {breakdown.length > 0 && (
+          <table className="cost-table">
+            <caption>Cost breakdown{travellers > 1 ? `, whole group of ${travellers}` : ''}</caption>
+            <tbody>
+              {breakdown.map((c, i) => (
+                <tr key={i}><th scope="row">{c.item}</th><td>{formatCost(c.amount)}</td></tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr><th scope="row">Total</th><td>{formatCost(breakdown.reduce((n, c) => n + c.amount, 0))}</td></tr>
+              {travellers > 1 && <tr className="is-per"><th scope="row">Per person</th><td>{formatCost(Math.round(breakdown.reduce((n, c) => n + c.amount, 0) / travellers))}</td></tr>}
+            </tfoot>
+          </table>
+        )}
       </div>
 
       {plan.trade_off_log.length > 0 && (
