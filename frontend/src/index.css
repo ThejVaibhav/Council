@@ -731,3 +731,12 @@ a.btn { text-decoration: none; color: inherit; }
 .dp-quick { border: 1px solid var(--line); background: var(--field); color: inherit; border-radius: 999px; padding: 5px 10px; font: 600 12.5px var(--sans); cursor: pointer; }
 .dp-quick:hover { border-color: var(--accent); color: var(--accent); }
 .dp-hint { margin: 8px 0 0; font-size: 12px; color: var(--soft); }
+
+/* ---------- boot ---------- */
+.boot { min-height: 70vh; display: grid; place-items: center; padding: 24px 16px; }
+.boot-card { display: grid; justify-items: center; gap: 10px; max-width: 380px; padding: 28px 26px; border-radius: 24px; text-align: center; }
+.boot-card strong { font-size: 18px; }
+.boot-card .hint { margin: 0; }
+.boot-spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid color-mix(in srgb, var(--accent) 22%, transparent); border-top-color: var(--accent); animation: boot-spin 0.9s linear infinite; }
+@keyframes boot-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .boot-spinner { animation-duration: 3s; } }

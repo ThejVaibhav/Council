@@ -1,6 +1,7 @@
 import { AnimatePresence, MotionConfig } from 'motion/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { DEMO, api } from './api'
+import BootScreen from './components/BootScreen'
 import ErrorBoundary from './components/ErrorBoundary'
 import Auth from './components/Auth'
 import CharacterEditor from './components/CharacterEditor'
@@ -99,9 +100,36 @@ export default function App() {
     [link, openPlan, refreshFriends],
   )
 
+  // Returning visitor: check the saved session. A free server can take up to a minute to wake, so keep
+  // retrying while it is unreachable, and only sign out when the server actually says the session is invalid.
   useEffect(() => {
     if (!api.hasSession()) return
-    api.me().then((u) => afterAuth(u, false)).catch(() => api.logout()).finally(() => setBooting(false))
+    let live = true
+    const started = Date.now()
+    const attempt = () =>
+      api.me().then(
+        async (u) => {
+          if (!live) return
+          await afterAuth(u, false)
+          setBooting(false)
+        },
+        (e) => {
+          if (!live) return
+          if (e.status === 401 || e.status === 403) {
+            api.logout()
+            setBooting(false)
+          } else if (Date.now() - started < 90000) {
+            setTimeout(() => live && attempt(), 4000)
+          } else {
+            setAuthError(e.message)
+            setBooting(false)
+          }
+        },
+      )
+    attempt()
+    return () => {
+      live = false
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -208,6 +236,7 @@ export default function App() {
           requests={friendLists.incoming.length}
           demo={DEMO}
         />
+        {page === 'boot' && <BootScreen />}
         <ErrorBoundary resetKey={page}>
         <AnimatePresence mode="wait">
           {page === 'recap' && (

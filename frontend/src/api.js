@@ -44,11 +44,19 @@ function httpApi() {
   const call = async (method, path, body) => {
     let res
     try {
-      res = await fetch(`${API_BASE}${path}`, {
-        method,
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: body ? JSON.stringify(body) : undefined,
-      })
+      // Never hang forever: a sleeping free server answers within a minute or not at all.
+      const ctl = new AbortController()
+      const timer = setTimeout(() => ctl.abort(), 70000)
+      try {
+        res = await fetch(`${API_BASE}${path}`, {
+          method,
+          signal: ctl.signal,
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: body ? JSON.stringify(body) : undefined,
+        })
+      } finally {
+        clearTimeout(timer)
+      }
     } catch {
       throw new ApiError(0, 'Could not reach the Council server. It may be waking up after a quiet spell, so wait a few seconds and try again.')
     }
